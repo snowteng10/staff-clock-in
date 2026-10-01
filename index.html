@@ -32,6 +32,15 @@
         <!-- 左側：打卡操作面板 (佔 2 欄) -->
         <div class="lg:col-span-2 space-y-6">
             
+            <!-- 未回程智慧提醒看板 -->
+            <div id="warningAlertBox" class="hidden bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-sm flex items-start gap-3">
+                <i class="fa-solid fa-triangle-exclamation text-amber-500 text-xl mt-0.5"></i>
+                <div class="flex-1">
+                    <h3 class="text-xs font-bold text-amber-800 uppercase tracking-wider">注意：有工作人員尚未打卡回程！</h3>
+                    <p id="warningAlertText" class="text-xs text-amber-700 mt-1"></p>
+                </div>
+            </div>
+
             <!-- 輸入姓名與單位卡片 -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
                 <div class="flex justify-between items-center">
@@ -49,7 +58,7 @@
                     <!-- 姓名輸入 -->
                     <div>
                         <label class="block text-xs font-bold text-slate-600 mb-1.5"><i class="fa-solid fa-user text-indigo-500 mr-1"></i> 工作人員姓名</label>
-                        <input type="text" id="staffNameInput" placeholder="請輸入姓名..." 
+                        <input type="text" id="staffNameInput" placeholder="請輸入姓名..." oninput="checkStaffStatus()"
                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 bg-slate-50 transition">
                     </div>
                     <!-- 單位輸入 -->
@@ -59,22 +68,34 @@
                                class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 bg-slate-50 transition">
                     </div>
                 </div>
+                <!-- 即時個人狀態提示 -->
+                <div id="personalStatusTip" class="text-xs font-bold px-3 py-2 rounded-lg bg-slate-100 text-slate-600 flex items-center gap-2 hidden">
+                    <i class="fa-solid fa-circle-info"></i> <span id="personalStatusText"></span>
+                </div>
                 <p id="lockStatusTip" class="text-[11px] text-slate-400 hidden"><i class="fa-solid fa-circle-info mr-1 text-indigo-500"></i>已啟用手機固定：姓名與單位已鎖定，修改需先取消上方勾選。</p>
             </div>
 
-            <!-- 打卡執行按鈕 -->
+            <!-- 打卡執行按鈕 (外觀極度明顯區分) -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                 <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4">
                     <i class="fa-solid fa-fingerprint mr-2 text-amber-500"></i>執行打卡動作
                 </h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <button onclick="clockIn('出發')" class="group relative overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white py-4 px-6 rounded-xl font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-3 cursor-pointer">
-                        <i class="fa-solid fa-plane-departure text-xl group-hover:scale-110 transition-transform"></i>
-                        <span class="text-lg">1次打卡 - 出發</span>
+                    <!-- 出發按鈕 (藍色系) -->
+                    <button onclick="clockIn('出發')" class="group relative overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white py-5 px-6 rounded-2xl shadow-md hover:shadow-xl transition flex flex-col items-center justify-center gap-2 cursor-pointer border-2 border-blue-400/30">
+                        <div class="flex items-center gap-2 text-xl font-black tracking-wide">
+                            <i class="fa-solid fa-plane-departure text-2xl group-hover:scale-125 transition-transform text-blue-200"></i>
+                            <span>打卡 - 出發</span>
+                        </div>
+                        <span class="text-[11px] text-blue-200 bg-blue-900/40 px-2.5 py-0.5 rounded-full">行程開始紀錄</span>
                     </button>
-                    <button onclick="clockIn('回程')" class="group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white py-4 px-6 rounded-xl font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-3 cursor-pointer">
-                        <i class="fa-solid fa-plane-arrival text-xl group-hover:scale-110 transition-transform"></i>
-                        <span class="text-lg">1次打卡 - 回程</span>
+                    <!-- 回程按鈕 (綠色系) -->
+                    <button onclick="clockIn('回程')" class="group relative overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white py-5 px-6 rounded-2xl shadow-md hover:shadow-xl transition flex flex-col items-center justify-center gap-2 cursor-pointer border-2 border-emerald-400/30">
+                        <div class="flex items-center gap-2 text-xl font-black tracking-wide">
+                            <i class="fa-solid fa-plane-arrival text-2xl group-hover:scale-125 transition-transform text-emerald-200"></i>
+                            <span>打卡 - 回程</span>
+                        </div>
+                        <span class="text-[11px] text-emerald-200 bg-emerald-900/40 px-2.5 py-0.5 rounded-full">計算歷時並結束</span>
                     </button>
                 </div>
             </div>
@@ -122,6 +143,7 @@
         
         applyLockState(isLocked);
         renderHistory();
+        checkGlobalWarnings();
 
         function saveScriptUrl() {
             scriptUrl = document.getElementById('scriptUrlInput').value.trim();
@@ -173,6 +195,58 @@
             }
         }
 
+        // 檢查特定人員當前狀態（用來顯示「目前已出發，等待回程」提示）
+        function checkStaffStatus() {
+            const staffName = document.getElementById('staffNameInput').value.trim();
+            const tipBox = document.getElementById('personalStatusTip');
+            const tipText = document.getElementById('personalStatusText');
+
+            if (!staffName) {
+                tipBox.classList.add('hidden');
+                return;
+            }
+
+            const lastRecord = historyData.find(item => item.name === staffName);
+            if (lastRecord && lastRecord.type === '出發') {
+                tipBox.classList.remove('hidden', 'bg-slate-100', 'text-slate-600', 'bg-emerald-50', 'text-emerald-700');
+                tipBox.classList.add('bg-amber-50', 'text-amber-800', 'border', 'border-amber-200');
+                tipText.innerHTML = `狀態提示：<strong>${staffName}</strong> 目前處於【已出發】狀態，尚未回程（出發時間：${lastRecord.time}）`;
+            } else {
+                tipBox.classList.remove('hidden', 'bg-amber-50', 'text-amber-800', 'border', 'border-amber-200');
+                tipBox.classList.add('bg-slate-100', 'text-slate-600');
+                tipText.innerHTML = `狀態提示：<strong>${staffName}</strong> 目前無進行中的行程（可隨時打卡出發）`;
+            }
+        }
+
+        // 檢查全體是否有未回程的人員
+        function checkGlobalWarnings() {
+            const alertBox = document.getElementById('warningAlertBox');
+            const alertText = document.getElementById('warningAlertText');
+            
+            // 找出每一個人的最新狀態
+            const latestStatusMap = {};
+            // 歷史資料是由新到舊排的，所以要反向或從頭看
+            historyData.forEach(item => {
+                if (!(item.name in latestStatusMap)) {
+                    latestStatusMap[item.name] = item.type;
+                }
+            });
+
+            const notReturnedList = [];
+            for (let name in latestStatusMap) {
+                if (latestStatusMap[name] === '出發') {
+                    notReturnedList.push(name);
+                }
+            }
+
+            if (notReturnedList.length > 0) {
+                alertBox.classList.remove('hidden');
+                alertText.innerHTML = `下列人員目前已「出發」但尚未點擊「回程」：<strong class="underline">${notReturnedList.join('、')}</strong>。請記得提醒他們回程時要打卡！`;
+            } else {
+                alertBox.classList.add('hidden');
+            }
+        }
+
         async function clockIn(type) {
             const staffName = document.getElementById('staffNameInput').value.trim();
             const unitName = document.getElementById('unitNameInput').value.trim();
@@ -201,7 +275,6 @@
                                String(now.getMinutes()).padStart(2, '0') + ':' + 
                                String(now.getSeconds()).padStart(2, '0');
 
-            // 計算本地端累計時間（找出同一個人上一筆紀錄）
             let durationText = "-";
             const lastRecord = historyData.find(item => item.name === staffName);
             if (lastRecord && type === "回程" && lastRecord.type === "出發") {
@@ -224,6 +297,8 @@
 
             historyData.unshift(record);
             saveAndRenderHistory();
+            checkStaffStatus();
+            checkGlobalWarnings();
 
             if (scriptUrl) {
                 try {
@@ -272,8 +347,12 @@
             }
 
             filtered.forEach(item => {
-                const isDeparture = item.type === '出費' || item.type === '出發';
-                const badgeColor = isDeparture ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700';
+                const isDeparture = item.type === '出發';
+                // 出發用強烈藍色，回程用強烈綠色，一眼就能區分
+                const badgeStyle = isDeparture 
+                    ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300' 
+                    : 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300';
+                const iconClass = isDeparture ? 'fa-plane-departure text-blue-200' : 'fa-plane-arrival text-emerald-200';
                 
                 let syncBadge = '';
                 if (item.syncStatus === 'success') {
@@ -284,16 +363,18 @@
                     syncBadge = '<span class="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-200"><i class="fa-solid fa-spinner fa-spin"></i> 同步中</span>';
                 }
 
-                let durationBadge = item.duration && item.duration !== '-' ? `<span class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-stopwatch mr-1"></i>歷時：${item.duration}</span>` : '';
+                let durationBadge = item.duration && item.duration !== '-' ? `<span class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold border border-indigo-200"><i class="fa-solid fa-stopwatch mr-1"></i>歷時：${item.duration}</span>` : '';
 
                 const card = document.createElement('div');
-                card.className = 'bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-1.5 hover:bg-slate-100/60 transition';
+                card.className = 'bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-2 hover:bg-slate-100/80 transition';
                 card.innerHTML = `
                     <div class="flex justify-between items-center">
-                        <span class="font-bold text-slate-700 text-sm"><i class="fa-solid fa-user-tag text-indigo-500 mr-1"></i> ${item.name}</span>
-                        <div class="flex items-center gap-1.5">
+                        <span class="font-bold text-slate-800 text-sm"><i class="fa-solid fa-user-tag text-indigo-500 mr-1"></i> ${item.name}</span>
+                        <div class="flex items-center gap-2">
                             ${durationBadge}
-                            <span class="px-2 py-0.5 rounded-full font-bold text-[11px] ${badgeColor}">${item.type}</span>
+                            <span class="px-2.5 py-1 rounded-lg font-bold text-xs flex items-center gap-1.5 ${badgeStyle}">
+                                <i class="fa-solid ${iconClass}"></i> ${item.type}
+                            </span>
                         </div>
                     </div>
                     <div class="text-slate-500 flex justify-between items-center">
@@ -313,6 +394,8 @@
                 historyData = [];
                 localStorage.removeItem('clock_history');
                 renderHistory();
+                checkGlobalWarnings();
+                checkStaffStatus();
             }
         }
     </script>
