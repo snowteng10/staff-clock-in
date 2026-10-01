@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工作人員打卡與雲端同步系統</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- 引入 FontAwesome 圖示 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- 頂部導覽列 -->
+    <header class="bg-indigo-600 text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+        <div class="flex items-center space-x-3">
+            <i class="fa-solid fa-clipboard-user text-2xl"></i>
+            <h1 class="text-xl font-bold tracking-wider">工作人員出勤雲端打卡系統</h1>
+        </div>
+        <!-- Apps Script 網址設定區 -->
+        <div class="w-full md:w-auto flex items-center bg-indigo-700/80 rounded-lg p-1.5 border border-indigo-500">
+            <span class="text-xs px-2 text-indigo-200 whitespace-nowrap"><i class="fa-solid fa-cloud"></i> API 網址：</span>
+            <input type="text" id="scriptUrlInput" placeholder="請貼上 Apps Script 網頁應用程式網址..." 
+                   class="bg-indigo-900/60 text-white text-xs px-3 py-1 rounded w-full md:w-80 outline-none focus:ring-1 focus:ring-indigo-300">
+            <button onclick="saveScriptUrl()" class="bg-indigo-500 hover:bg-indigo-400 text-white text-xs px-3 py-1 rounded ml-1 transition cursor-pointer">儲存</button>
+        </div>
+    </header>
+
+    <!-- 主要內容區 -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- 左側：打卡操作面板 (佔 2 欄) -->
+        <div class="lg:col-span-2 space-y-6">
+            
+            <!-- 目前選擇狀態指示 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-wrap items-center justify-between gap-4">
+                <div class="flex items-center gap-4">
+                    <div class="bg-indigo-50 text-indigo-600 p-3 rounded-xl">
+                        <i class="fa-solid fa-user-check text-xl"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs text-slate-400 block font-medium">目前選定人員</span>
+                        <span id="currentStaffDisplay" class="text-lg font-bold text-slate-700">尚未選擇</span>
+                    </div>
+                </div>
+                <div class="h-8 w-px bg-slate-200 hidden sm:block"></div>
+                <div class="flex items-center gap-4">
+                    <div class="bg-emerald-50 text-emerald-600 p-3 rounded-xl">
+                        <i class="fa-solid fa-location-dot text-xl"></i>
+                    </div>
+                    <div>
+                        <span class="text-xs text-slate-400 block font-medium">目前選定工作單位</span>
+                        <span id="currentUnitDisplay" class="text-lg font-bold text-slate-700">尚未選擇</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 第一步：選擇工作人員 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider"><i class="fa-solid fa-users mr-2 text-indigo-500"></i>1. 點選工作人員</h2>
+                    <div class="flex gap-2">
+                        <input type="text" id="newStaffName" placeholder="新增人員名字" class="text-xs border border-slate-200 rounded px-2 py-1 outline-none focus:border-indigo-500">
+                        <button onclick="addStaff()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded transition cursor-pointer"><i class="fa-solid fa-plus"></i> 新增</button>
+                    </div>
+                </div>
+                <div id="staffListContainer" class="flex flex-wrap gap-2">
+                    <!-- 動態生成人員按鈕 -->
+                </div>
+            </div>
+
+            <!-- 第二步：選擇工作單位 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider"><i class="fa-solid fa-building mr-2 text-emerald-500"></i>2. 點選工作單位</h2>
+                    <div class="flex gap-2">
+                        <input type="text" id="newUnitName" placeholder="新增單位名稱" class="text-xs border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-500">
+                        <button onclick="addUnit()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1 rounded transition cursor-pointer"><i class="fa-solid fa-plus"></i> 新增</button>
+                    </div>
+                </div>
+                <div id="unitListContainer" class="flex flex-wrap gap-2">
+                    <!-- 動態生成單位按鈕 -->
+                </div>
+            </div>
+
+            <!-- 第三步：打卡執行按鈕 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4"><i class="fa-solid fa-fingerprint mr-2 text-amber-500"></i>3. 執行打卡動作</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <button onclick="clockIn('出發')" class="group relative overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white py-4 px-6 rounded-xl font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-3 cursor-pointer">
+                        <i class="fa-solid fa-plane-departure text-xl group-hover:scale-110 transition-transform"></i>
+                        <span class="text-lg">1次打卡 - 出發</span>
+                    </button>
+                    <button onclick="clockIn('回程')" class="group relative overflow-hidden bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white py-4 px-6 rounded-xl font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-3 cursor-pointer">
+                        <i class="fa-solid fa-plane-arrival text-xl group-hover:scale-110 transition-transform"></i>
+                        <span class="text-lg">1次打卡 - 回程</span>
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- 右側：打卡紀錄與狀態 (佔 1 欄) -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col h-[700px]">
+            <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
+                <h2 class="font-bold text-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left text-indigo-500"></i> 即時打卡紀錄
+                </h2>
+                <button onclick="clearHistory()" class="text-xs text-rose-500 hover:text-rose-700 transition cursor-pointer"><i class="fa-solid fa-trash-can"></i> 清除紀錄</button>
+            </div>
+
+            <!-- 搜尋過濾 -->
+            <div class="mb-3">
+                <input type="text" id="searchInput" oninput="renderHistory()" placeholder="搜尋紀錄（姓名/單位/類型）..." 
+                       class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 bg-slate-50">
+            </div>
+
+            <!-- 紀錄清單 -->
+            <div id="historyList" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
+                <!-- 動態生成的歷史紀錄 -->
+            </div>
+        </div>
+
+    </main>
+
+    <!-- JavaScript 邏輯 -->
+    <script>
+        // 預設資料
+        let staffList = JSON.parse(localStorage.getItem('staff_list')) || ['王小明', '李小華', '張大山', '林美麗'];
+        let unitList = JSON.parse(localStorage.getItem('unit_list')) || ['A棟大廳', 'B棟展場', '行政中心', '物流倉庫'];
+        let historyData = JSON.parse(localStorage.getItem('clock_history')) || [];
+        
+        let selectedStaff = localStorage.getItem('selected_staff') || null;
+        let selectedUnit = localStorage.getItem('selected_unit') || null;
+        let scriptUrl = localStorage.getItem('gas_script_url') || '';
+
+        // 初始化載入
+        document.getElementById('scriptUrlInput').value = scriptUrl;
+        renderStaff();
+        renderUnits();
+        updateSelectionDisplay();
+        renderHistory();
+
+        // 儲存 Apps Script 網址
+        function saveScriptUrl() {
+            scriptUrl = document.getElementById('scriptUrlInput').value.trim();
+            localStorage.setItem('gas_script_url', scriptUrl);
+            alert('雲端 API 網址已儲存！');
+        }
+
+        // 渲染人員按鈕
+        function renderStaff() {
+            const container = document.getElementById('staffListContainer');
+            container.innerHTML = '';
+            staffList.forEach(name => {
+                const isSelected = name === selectedStaff;
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-2 rounded-xl text-sm font-medium transition cursor-pointer border flex items-center gap-2 ${
+                    isSelected 
+                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`;
+                btn.innerHTML = `<i class="fa-solid fa-user ${isSelected ? 'text-white' : 'text-slate-400'}"></i> ${name}`;
+                btn.onclick = () => {
+                    selectedStaff = name;
+                    localStorage.setItem('selected_staff', name);
+                    renderStaff();
+                    updateSelectionDisplay();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // 渲染單位按鈕
+        function renderUnits() {
+            const container = document.getElementById('unitListContainer');
+            container.innerHTML = '';
+            unitList.forEach(unit => {
+                const isSelected = unit === selectedUnit;
+                const btn = document.createElement('button');
+                btn.className = `px-4 py-2 rounded-xl text-sm font-medium transition cursor-pointer border flex items-center gap-2 ${
+                    isSelected 
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' 
+                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`;
+                btn.innerHTML = `<i class="fa-solid fa-building ${isSelected ? 'text-white' : 'text-slate-400'}"></i> ${unit}`;
+                btn.onclick = () => {
+                    selectedUnit = unit;
+                    localStorage.setItem('selected_unit', unit);
+                    renderUnits();
+                    updateSelectionDisplay();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        // 新增人員
+        function addStaff() {
+            const input = document.getElementById('newStaffName');
+            const name = input.value.trim();
+            if (name && !staffList.includes(name)) {
+                staffList.push(name);
+                localStorage.setItem('staff_list', JSON.stringify(staffList));
+                input.value = '';
+                renderStaff();
+            } else {
+                alert('請輸入有效或未重複的名字');
+            }
+        }
+
+        // 新增單位
+        function addUnit() {
+            const input = document.getElementById('newUnitName');
+            const unit = input.value.trim();
+            if (unit && !unitList.includes(unit)) {
+                unitList.push(unit);
+                localStorage.setItem('unit_list', JSON.stringify(unitList));
+                input.value = '';
+                renderUnits();
+            } else {
+                alert('請輸入有效或未重複的單位名稱');
+            }
+        }
+
+        // 更新目前選擇畫面
+        function updateSelectionDisplay() {
+            document.getElementById('currentStaffDisplay').innerText = selectedStaff || '尚未選擇';
+            document.getElementById('currentStaffDisplay').className = selectedStaff ? 'text-lg font-bold text-indigo-600' : 'text-lg font-bold text-slate-400';
+            
+            document.getElementById('currentUnitDisplay').innerText = selectedUnit || '尚未選擇';
+            document.getElementById('currentUnitDisplay').className = selectedUnit ? 'text-lg font-bold text-emerald-600' : 'text-lg font-bold text-slate-400';
+        }
+
+        // 執行打卡
+        async function clockIn(type) {
+            if (!selectedStaff) {
+                alert('請先點選工作人員！');
+                return;
+            }
+            if (!selectedUnit) {
+                alert('請先點選工作單位！');
+                return;
+            }
+
+            const now = new Date();
+            const timeString = now.getFullYear() + '-' + 
+                               String(now.getMonth() + 1).padStart(2, '0') + '-' + 
+                               String(now.getDate()).padStart(2, '0') + ' ' + 
+                               String(now.getHours()).padStart(2, '0') + ':' + 
+                               String(now.getMinutes()).padStart(2, '0') + ':' + 
+                               String(now.getSeconds()).padStart(2, '0');
+
+            const record = {
+                time: timeString,
+                name: selectedStaff,
+                unit: selectedUnit,
+                type: type,
+                syncStatus: 'syncing'
+            };
+
+            // 放入歷史前端陣列並儲存
+            historyData.unshift(record);
+            saveAndRenderHistory();
+
+            // 如果有設定 Apps Script 網址，則發送雲端同步
+            if (scriptUrl) {
+                try {
+                    await fetch(scriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors', // 繞過跨域阻擋
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            name: selectedStaff,
+                            unit: selectedUnit,
+                            type: type
+                        })
+                    });
+                    record.syncStatus = 'success';
+                } catch (error) {
+                    console.error('雲端同步錯誤:', error);
+                    record.syncStatus = 'error';
+                }
+            } else {
+                record.syncStatus = 'local_only';
+            }
+            
+            saveAndRenderHistory();
+        }
+
+        function saveAndRenderHistory() {
+            localStorage.setItem('clock_history', JSON.stringify(historyData));
+            renderHistory();
+        }
+
+        // 渲染歷史紀錄清單
+        function renderHistory() {
+            const container = document.getElementById('historyList');
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            container.innerHTML = '';
+
+            const filtered = historyData.filter(item => 
+                item.name.toLowerCase().includes(keyword) || 
+                item.unit.toLowerCase().includes(keyword) || 
+                item.type.toLowerCase().includes(keyword) ||
+                item.time.includes(keyword)
+            );
+
+            if (filtered.length === 0) {
+                container.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs">目前尚無打卡紀錄</div>`;
+                return;
+            }
+
+            filtered.forEach(item => {
+                const isDeparture = item.type === '出發';
+                const badgeColor = isDeparture ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700';
+                
+                let syncBadge = '';
+                if (item.syncStatus === 'success') {
+                    syncBadge = '<span class="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-200" title="已同步至雲端試算表"><i class="fa-solid fa-cloud-arrow-up"></i> 已同步</span>';
+                } else if (item.syncStatus === 'error') {
+                    syncBadge = '<span class="text-[10px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded border border-rose-200" title="雲端同步失敗"><i class="fa-solid fa-triangle-exclamation"></i> 同步失敗</span>';
+                } else {
+                    syncBadge = '<span class="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-200"><i class="fa-solid fa-spinner fa-spin"></i> 同步中</span>';
+                }
+
+                const card = document.createElement('div');
+                card.className = 'bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-1.5 hover:bg-slate-100/60 transition';
+                card.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <span class="font-bold text-slate-700 text-sm"><i class="fa-solid fa-user-tag text-indigo-500 mr-1"></i> ${item.name}</span>
+                        <span class="px-2 py-0.5 rounded-full font-bold text-[11px] ${badgeColor}">${item.type}</span>
+                    </div>
+                    <div class="text-slate-500 flex justify-between items-center">
+                        <span><i class="fa-solid fa-location-pin text-emerald-500 mr-1"></i> ${item.unit}</span>
+                        ${syncBadge}
+                    </div>
+                    <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-200/60 flex justify-between">
+                        <span><i class="fa-regular fa-clock mr-1"></i> ${item.time}</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // 清除歷史
+        function clearHistory() {
+            if (confirm('確定要清除所有本地打卡紀錄嗎？')) {
+                historyData = [];
+                localStorage.removeItem('clock_history');
+                renderHistory();
+            }
+        }
+    </script>
+</body>
+</html>
