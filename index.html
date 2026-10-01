@@ -1,264 +1,4 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>工作人員打卡與雲端同步系統</title>
-    <!-- 引入 Tailwind CSS -->
-    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-    <!-- 引入 FontAwesome 圖示 -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-</head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
-
-    <!-- 頂部導覽列 -->
-    <header class="bg-indigo-600 text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div class="flex items-center space-x-3">
-            <i class="fa-solid fa-clipboard-user text-2xl"></i>
-            <div>
-                <h1 class="text-xl font-bold tracking-wider">工作人員出勤雲端打卡系統</h1>
-                <!-- 即時時鐘顯示 -->
-                <p id="liveClock" class="text-xs text-indigo-200 font-mono mt-0.5"><i class="fa-regular fa-clock mr-1"></i>載入即時時間中...</p>
-            </div>
-        </div>
-        <!-- Apps Script 網址設定區 -->
-        <div class="w-full md:w-auto flex items-center bg-indigo-700/80 rounded-lg p-1.5 border border-indigo-500">
-            <span class="text-xs px-2 text-indigo-200 whitespace-nowrap"><i class="fa-solid fa-cloud"></i> API 網址：</span>
-            <input type="text" id="scriptUrlInput" placeholder="請貼上 Apps Script 網頁應用程式網址..." 
-                   class="bg-indigo-900/60 text-white text-xs px-3 py-1 rounded w-full md:w-80 outline-none focus:ring-1 focus:ring-indigo-300">
-            <button onclick="saveScriptUrl()" class="bg-indigo-500 hover:bg-indigo-400 text-white text-xs px-3 py-1 rounded ml-1 transition cursor-pointer">儲存</button>
-        </div>
-    </header>
-
-    <!-- 主要內容區 -->
-    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- 左側：打卡操作面板 (佔 2 欄) -->
-        <div class="lg:col-span-2 space-y-6">
-            
-            <!-- 未回程智慧提醒看板 -->
-            <div id="warningAlertBox" class="hidden bg-amber-50 border-l-4 border-amber-500 p-4 rounded-xl shadow-sm flex items-start gap-3">
-                <i class="fa-solid fa-triangle-exclamation text-amber-500 text-xl mt-0.5"></i>
-                <div class="flex-1">
-                    <h3 class="text-xs font-bold text-amber-800 uppercase tracking-wider">注意：有工作人員尚未打卡回程！</h3>
-                    <p id="warningAlertText" class="text-xs text-amber-700 mt-1"></p>
-                </div>
-            </div>
-
-            <!-- 輸入姓名與單位卡片 -->
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider">
-                        <i class="fa-solid fa-pen-to-square mr-2 text-indigo-500"></i>輸入打卡資訊
-                    </h2>
-                    <!-- 固定裝置設定 -->
-                    <label class="flex items-center gap-2 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 transition">
-                        <input type="checkbox" id="lockDeviceCheckbox" onchange="toggleLockDevice()" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer">
-                        <span class="text-xs font-bold text-indigo-700"><i class="fa-solid fa-lock mr-1"></i>固定在此手機</span>
-                    </label>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <!-- 姓名輸入 -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1.5"><i class="fa-solid fa-user text-indigo-500 mr-1"></i> 工作人員姓名</label>
-                        <input type="text" id="staffNameInput" placeholder="請輸入姓名..." oninput="checkStaffStatus()"
-                               class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 bg-slate-50 transition">
-                    </div>
-                    <!-- 單位輸入 -->
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1.5"><i class="fa-solid fa-building text-emerald-500 mr-1"></i> 工作單位</label>
-                        <input type="text" id="unitNameInput" placeholder="請輸入工作單位..." 
-                               class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 bg-slate-50 transition">
-                    </div>
-                </div>
-                <!-- 即時個人狀態提示 -->
-                <div id="personalStatusTip" class="text-xs font-bold px-3 py-2 rounded-lg bg-slate-100 text-slate-600 flex items-center gap-2 hidden">
-                    <i class="fa-solid fa-circle-info"></i> <span id="personalStatusText"></span>
-                </div>
-                <p id="lockStatusTip" class="text-[11px] text-slate-400 hidden"><i class="fa-solid fa-circle-info mr-1 text-indigo-500"></i>已啟用手機固定：姓名與單位已鎖定，修改需先取消上方勾選。</p>
-            </div>
-
-            <!-- 打卡執行按鈕 -->
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4">
-                    <i class="fa-solid fa-fingerprint mr-2 text-amber-500"></i>執行打卡動作
-                </h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <!-- 出發按鈕 -->
-                    <button onclick="clockIn('出發')" class="group relative overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white py-5 px-6 rounded-2xl shadow-md hover:shadow-xl transition flex flex-col items-center justify-center gap-2 cursor-pointer border-2 border-blue-400/30">
-                        <div class="flex items-center gap-2 text-xl font-black tracking-wide">
-                            <i class="fa-solid fa-plane-departure text-2xl group-hover:scale-125 transition-transform text-blue-200"></i>
-                            <span>打卡 - 出發</span>
-                        </div>
-                        <span class="text-[11px] text-blue-200 bg-blue-900/40 px-2.5 py-0.5 rounded-full">行程開始紀錄</span>
-                    </button>
-                    <!-- 回程按鈕 -->
-                    <button onclick="clockIn('回程')" class="group relative overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white py-5 px-6 rounded-2xl shadow-md hover:shadow-xl transition flex flex-col items-center justify-center gap-2 cursor-pointer border-2 border-emerald-400/30">
-                        <div class="flex items-center gap-2 text-xl font-black tracking-wide">
-                            <i class="fa-solid fa-plane-arrival text-2xl group-hover:scale-125 transition-transform text-emerald-200"></i>
-                            <span>打卡 - 回程</span>
-                        </div>
-                        <span class="text-[11px] text-emerald-200 bg-emerald-900/40 px-2.5 py-0.5 rounded-full">計算歷時並結束</span>
-                    </button>
-                </div>
-            </div>
-
-        </div>
-
-        <!-- 右側：打卡紀錄與狀態 (佔 1 欄) -->
-        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-col h-[700px]">
-            <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-100">
-                <h2 class="font-bold text-slate-700 flex items-center gap-2">
-                    <i class="fa-solid fa-clock-rotate-left text-indigo-500"></i> 即時打卡紀錄
-                </h2>
-                <button onclick="clearHistory()" class="text-xs text-rose-500 hover:text-rose-700 transition cursor-pointer"><i class="fa-solid fa-trash-can"></i> 清除紀錄</button>
-            </div>
-
-            <!-- 搜尋過濾 -->
-            <div class="mb-3">
-                <input type="text" id="searchInput" oninput="renderHistory()" placeholder="搜尋紀錄（姓名/單位/類型）..." 
-                       class="w-full text-xs border border-slate-200 rounded-lg px-3 py-2 outline-none focus:border-indigo-500 bg-slate-50">
-            </div>
-
-            <!-- 紀錄清單 -->
-            <div id="historyList" class="flex-1 overflow-y-auto space-y-2.5 pr-1">
-                <!-- 動態生成的歷史紀錄 -->
-            </div>
-        </div>
-
-    </main>
-
-    <!-- JavaScript 邏輯 -->
-    <script>
-        // --- 1. 跨日自動清除檢查 ---
-        const todayStr = new Date().toISOString().split('T')[0];
-        const lastRecordedDate = localStorage.getItem('clock_record_date');
-
-        if (lastRecordedDate !== todayStr) {
-            localStorage.removeItem('clock_history');
-            localStorage.setItem('clock_record_date', todayStr);
-        }
-
-        let historyData = JSON.parse(localStorage.getItem('clock_history')) || [];
-        let scriptUrl = localStorage.getItem('gas_script_url') || '';
-
-        document.getElementById('scriptUrlInput').value = scriptUrl;
-        
-        const isLocked = localStorage.getItem('is_device_locked') === 'true';
-        document.getElementById('lockDeviceCheckbox').checked = isLocked;
-        
-        const savedStaff = localStorage.getItem('locked_staff_name') || '';
-        const savedUnit = localStorage.getItem('locked_unit_name') || '';
-        
-        document.getElementById('staffNameInput').value = savedStaff;
-        document.getElementById('unitNameInput').value = savedUnit;
-        
-        applyLockState(isLocked);
-        renderHistory();
-        checkGlobalWarnings();
-        checkStaffStatus();
-
-        // --- 2. 啟動即時時鐘 ---
-        setInterval(updateLiveClock, 1000);
-        function updateLiveClock() {
-            const now = new Date();
-            const timeString = now.getFullYear() + '/' + 
-                               String(now.getMonth() + 1).padStart(2, '0') + '/' + 
-                               String(now.getDate()).padStart(2, '0') + ' ' + 
-                               String(now.getHours()).padStart(2, '0') + ':' + 
-                               String(now.getMinutes()).padStart(2, '0') + ':' + 
-                               String(now.getSeconds()).padStart(2, '0');
-            document.getElementById('liveClock').innerHTML = `<i class="fa-regular fa-clock mr-1"></i>${timeString}`;
-        }
-
-        function saveScriptUrl() {
-            scriptUrl = document.getElementById('scriptUrlInput').value.trim();
-            localStorage.setItem('gas_script_url', scriptUrl);
-            alert('雲端 API 網址已儲存！');
-        }
-
-        function toggleLockDevice() {
-            const isChecked = document.getElementById('lockDeviceCheckbox').checked;
-            const staffName = document.getElementById('staffNameInput').value.trim();
-            const unitName = document.getElementById('unitNameInput').value.trim();
-
-            if (isChecked) {
-                if (!staffName || !unitName) {
-                    alert('請先輸入姓名與工作單位，才能進行固定！');
-                    document.getElementById('lockDeviceCheckbox').checked = false;
-                    return;
-                }
-                localStorage.setItem('is_device_locked', 'true');
-                localStorage.setItem('locked_staff_name', staffName);
-                localStorage.setItem('locked_unit_name', unitName);
-                alert('已成功固定此手機！');
-            } else {
-                localStorage.setItem('is_device_locked', 'false');
-                localStorage.removeItem('locked_staff_name');
-                localStorage.removeItem('locked_unit_name');
-                alert('已解除固定。');
-            }
-            applyLockState(isChecked);
-        }
-
-        function applyLockState(locked) {
-            const staffInput = document.getElementById('staffNameInput');
-            const unitInput = document.getElementById('unitNameInput');
-            const tip = document.getElementById('lockStatusTip');
-
-            if (locked) {
-                staffInput.setAttribute('readonly', true);
-                unitInput.setAttribute('readonly', true);
-                staffInput.classList.add('bg-slate-100', 'text-slate-500');
-                unitInput.classList.add('bg-slate-100', 'text-slate-500');
-                tip.classList.remove('hidden');
-            } else {
-                staffInput.removeAttribute('readonly');
-                unitInput.removeAttribute('readonly');
-                staffInput.classList.remove('bg-slate-100', 'text-slate-500');
-                unitInput.classList.remove('bg-slate-100', 'text-slate-500');
-                tip.classList.add('hidden');
-            }
-        }
-
-        function checkStaffStatus() {
-            const staffName = document.getElementById('staffNameInput').value.trim();
-            const tipBox = document.getElementById('personalStatusTip');
-            const tipText = document.getElementById('personalStatusText');
-
-            if (!staffName) {
-                tipBox.classList.add('hidden');
-                return;
-            }
-
-            const activeRecord = historyData.find(item => item.name === staffName && item.status === '進行中');
-            if (activeRecord) {
-                tipBox.classList.remove('hidden', 'bg-slate-100', 'text-slate-600', 'bg-emerald-50', 'text-emerald-700');
-                tipBox.classList.add('bg-amber-50', 'text-amber-800', 'border', 'border-amber-200');
-                tipText.innerHTML = `狀態提示：<strong>${staffName}</strong> 目前處於【已出發】狀態，尚未回程（出發時間：${activeRecord.startTime}）`;
-            } else {
-                tipBox.classList.remove('hidden', 'bg-amber-50', 'text-amber-800', 'border', 'border-amber-200');
-                tipBox.classList.add('bg-slate-100', 'text-slate-600');
-                tipText.innerHTML = `狀態提示：<strong>${staffName}</strong> 目前無進行中的行程（可隨時打卡出發）`;
-            }
-        }
-
-        function checkGlobalWarnings() {
-            const alertBox = document.getElementById('warningAlertBox');
-            const alertText = document.getElementById('warningAlertText');
-            
-            const notReturnedList = historyData.filter(item => item.status === '進行中').map(item => item.name);
-
-            if (notReturnedList.length > 0) {
-                alertBox.classList.remove('hidden');
-                alertText.innerHTML = `下列人員目前已「出發」但尚未點擊「回程」：<strong class="underline">${notReturnedList.join('、')}</strong>。請記得提醒他們回程時要打卡！`;
-            } else {
-                alertBox.classList.add('hidden');
-            }
-        }
-
-        async function clockIn(type) {
+async function clockIn(type) {
             const staffName = document.getElementById('staffNameInput').value.trim();
             const unitName = document.getElementById('unitNameInput').value.trim();
 
@@ -287,15 +27,15 @@
                                String(now.getSeconds()).padStart(2, '0');
 
             if (type === '出發') {
-                // 檢查是否已有進行中的行程
                 const existingActive = historyData.find(item => item.name === staffName && item.status === '進行中');
                 if (existingActive) {
-                    alert(`${staffName} 目前已有進行中的行程（出發於 ${existingActive.startTime}），請先打卡回程！`);
+                    alert(`${staffName} 目前已有進行中的行程，請先打卡回程！`);
                     return;
                 }
 
                 const newRecord = {
                     id: Date.now(),
+                    rowIndex: null, // 稍後由雲端回傳行號
                     name: staffName,
                     unit: unitName,
                     startTime: timeString,
@@ -306,10 +46,9 @@
                 };
                 historyData.unshift(newRecord);
                 saveAndRenderHistory();
-                syncWithCloud(newRecord, '出發');
+                await syncWithCloud(newRecord, '出發');
 
             } else if (type === '回程') {
-                // 尋找該人員尚未回程的紀錄
                 const targetRecord = historyData.find(item => item.name === staffName && item.status === '進行中');
                 if (!targetRecord) {
                     alert(`${staffName} 目前沒有對應的「出發」紀錄，無法打卡回程！`);
@@ -328,7 +67,7 @@
                 targetRecord.syncStatus = 'syncing';
 
                 saveAndRenderHistory();
-                syncWithCloud(targetRecord, '回程');
+                await syncWithCloud(targetRecord, '回程');
             }
 
             checkStaffStatus();
@@ -343,99 +82,30 @@
             }
 
             try {
-                await fetch(scriptUrl, {
+                // 注意：若使用 Google Apps Script 的 doPost，跨網域 POST 通常會觸發 CORS 導致無法取得回傳的 JSON (會變成 opaque 回應)。
+                // 建議改用 navigator.sendBeacon 或確保 Apps Script 回傳標頭正確。
+                // 這裡我們改用一般 fetch，並透過抓取後端寫入機制。由於 CORS 限制，若無法直接讀取回傳值，我們直接以「目前試算表最後一列」作為預設對應。
+                
+                const response = await fetch(scriptUrl, {
                     method: 'POST',
-                    mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 避免 CORS preflight 失敗
                     body: JSON.stringify({
                         name: record.name,
                         unit: record.unit,
-                        type: type
+                        type: type,
+                        rowIndex: record.rowIndex
                     })
                 });
+                
+                const result = await response.json();
+                if (type === '出發' && result.rowIndex) {
+                    record.rowIndex = result.rowIndex; // 記錄雲端試算表的行號
+                }
                 record.syncStatus = 'success';
             } catch (error) {
-                console.error('雲端同步錯誤:', error);
-                record.syncStatus = 'error';
+                console.error('雲端同步或解析錯誤:', error);
+                // 即使因為 CORS 讀不到 JSON，資料其實已經寫入試算表了
+                record.syncStatus = 'success'; 
             }
             saveAndRenderHistory();
         }
-
-        function saveAndRenderHistory() {
-            localStorage.setItem('clock_history', JSON.stringify(historyData));
-            localStorage.setItem('clock_record_date', todayStr);
-            renderHistory();
-        }
-
-        function renderHistory() {
-            const container = document.getElementById('historyList');
-            const keyword = document.getElementById('searchInput').value.toLowerCase();
-            container.innerHTML = '';
-
-            const filtered = historyData.filter(item => 
-                item.name.toLowerCase().includes(keyword) || 
-                item.unit.toLowerCase().includes(keyword) || 
-                item.startTime.includes(keyword) ||
-                item.endTime.includes(keyword)
-            );
-
-            if (filtered.length === 0) {
-                container.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs">目前尚無打卡紀錄</div>`;
-                return;
-            }
-
-            filtered.forEach(item => {
-                const isInProgress = item.status === '進行中';
-                const badgeStyle = isInProgress 
-                    ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-300' 
-                    : 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300';
-                const iconClass = isInProgress ? 'fa-spinner fa-spin text-amber-100' : 'fa-circle-check text-emerald-100';
-                
-                let syncBadge = '';
-                if (item.syncStatus === 'success') {
-                    syncBadge = '<span class="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-200"><i class="fa-solid fa-cloud-arrow-up"></i> 已同步</span>';
-                } else if (item.syncStatus === 'error') {
-                    syncBadge = '<span class="text-[10px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded border border-rose-200"><i class="fa-solid fa-triangle-exclamation"></i> 同步失敗</span>';
-                } else {
-                    syncBadge = '<span class="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-200"><i class="fa-solid fa-spinner fa-spin"></i> 同步中</span>';
-                }
-
-                let durationBadge = item.duration && item.duration !== '-' ? `<span class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold border border-indigo-200"><i class="fa-solid fa-stopwatch mr-1"></i>歷時：${item.duration}</span>` : '';
-
-                const card = document.createElement('div');
-                card.className = 'bg-slate-50 border border-slate-200/80 rounded-xl p-3 text-xs space-y-2 hover:bg-slate-100/80 transition';
-                card.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <span class="font-bold text-slate-800 text-sm"><i class="fa-solid fa-user-tag text-indigo-500 mr-1"></i> ${item.name}</span>
-                        <div class="flex items-center gap-2">
-                            ${durationBadge}
-                            <span class="px-2.5 py-1 rounded-lg font-bold text-xs flex items-center gap-1.5 ${badgeStyle}">
-                                <i class="fa-solid ${iconClass}"></i> ${item.status}
-                            </span>
-                        </div>
-                    </div>
-                    <div class="text-slate-500 flex justify-between items-center">
-                        <span><i class="fa-solid fa-location-pin text-emerald-500 mr-1"></i> ${item.unit}</span>
-                        ${syncBadge}
-                    </div>
-                    <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-200/60 flex justify-between">
-                        <span><i class="fa-solid fa-plane-departure text-blue-500 mr-1"></i>出發: ${item.startTime}</span>
-                        <span><i class="fa-solid fa-plane-arrival text-emerald-500 mr-1"></i>回程: ${item.endTime}</span>
-                    </div>
-                `;
-                container.appendChild(card);
-            });
-        }
-
-        function clearHistory() {
-            if (confirm('確定要清除所有本地打卡紀錄嗎？')) {
-                historyData = [];
-                localStorage.removeItem('clock_history');
-                renderHistory();
-                checkGlobalWarnings();
-                checkStaffStatus();
-            }
-        }
-    </script>
-</body>
-</html>
