@@ -109,7 +109,6 @@
         let historyData = JSON.parse(localStorage.getItem('clock_history')) || [];
         let scriptUrl = localStorage.getItem('gas_script_url') || '';
 
-        // 初始化載入設定
         document.getElementById('scriptUrlInput').value = scriptUrl;
         
         const isLocked = localStorage.getItem('is_device_locked') === 'true';
@@ -124,14 +123,12 @@
         applyLockState(isLocked);
         renderHistory();
 
-        // 儲存 Apps Script 網址
         function saveScriptUrl() {
             scriptUrl = document.getElementById('scriptUrlInput').value.trim();
             localStorage.setItem('gas_script_url', scriptUrl);
             alert('雲端 API 網址已儲存！');
         }
 
-        // 切換固定手機狀態
         function toggleLockDevice() {
             const isChecked = document.getElementById('lockDeviceCheckbox').checked;
             const staffName = document.getElementById('staffNameInput').value.trim();
@@ -146,7 +143,7 @@
                 localStorage.setItem('is_device_locked', 'true');
                 localStorage.setItem('locked_staff_name', staffName);
                 localStorage.setItem('locked_unit_name', unitName);
-                alert('已成功固定此手機！下次開啟將自動帶入您的姓名與單位。');
+                alert('已成功固定此手機！');
             } else {
                 localStorage.setItem('is_device_locked', 'false');
                 localStorage.removeItem('locked_staff_name');
@@ -156,7 +153,6 @@
             applyLockState(isChecked);
         }
 
-        // 根據固定狀態鎖定或解鎖輸入框
         function applyLockState(locked) {
             const staffInput = document.getElementById('staffNameInput');
             const unitInput = document.getElementById('unitNameInput');
@@ -177,7 +173,6 @@
             }
         }
 
-        // 執行打卡
         async function clockIn(type) {
             const staffName = document.getElementById('staffNameInput').value.trim();
             const unitName = document.getElementById('unitNameInput').value.trim();
@@ -193,7 +188,6 @@
                 return;
             }
 
-            // 如果沒有勾選固定，但也順便記錄最後一次輸入
             if (!document.getElementById('lockDeviceCheckbox').checked) {
                 localStorage.setItem('locked_staff_name', staffName);
                 localStorage.setItem('locked_unit_name', unitName);
@@ -207,24 +201,35 @@
                                String(now.getMinutes()).padStart(2, '0') + ':' + 
                                String(now.getSeconds()).padStart(2, '0');
 
+            // 計算本地端累計時間（找出同一個人上一筆紀錄）
+            let durationText = "-";
+            const lastRecord = historyData.find(item => item.name === staffName);
+            if (lastRecord && type === "回程" && lastRecord.type === "出發") {
+                const startTime = new Date(lastRecord.time.replace(/-/g, "/"));
+                const diffMs = now - startTime;
+                const diffMins = Math.floor(diffMs / 60000);
+                const hours = Math.floor(diffMins / 60);
+                const mins = diffMins % 60;
+                durationText = (hours > 0 ? hours + "小時 " : "") + mins + "分鐘";
+            }
+
             const record = {
                 time: timeString,
                 name: staffName,
                 unit: unitName,
                 type: type,
+                duration: durationText,
                 syncStatus: 'syncing'
             };
 
-            // 放入歷史前端陣列並儲存
             historyData.unshift(record);
             saveAndRenderHistory();
 
-            // 如果有設定 Apps Script 網址，則發送雲端同步
             if (scriptUrl) {
                 try {
                     await fetch(scriptUrl, {
                         method: 'POST',
-                        mode: 'no-cors', // 繞過跨域阻擋
+                        mode: 'no-cors',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             name: staffName,
@@ -249,7 +254,6 @@
             renderHistory();
         }
 
-        // 渲染歷史紀錄清單
         function renderHistory() {
             const container = document.getElementById('historyList');
             const keyword = document.getElementById('searchInput').value.toLowerCase();
@@ -268,24 +272,29 @@
             }
 
             filtered.forEach(item => {
-                const isDeparture = item.type === '出發';
+                const isDeparture = item.type === '出費' || item.type === '出發';
                 const badgeColor = isDeparture ? 'bg-blue-100 text-blue-700' : 'bg-emerald-100 text-emerald-700';
                 
                 let syncBadge = '';
                 if (item.syncStatus === 'success') {
-                    syncBadge = '<span class="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-200" title="已同步至雲端試算表"><i class="fa-solid fa-cloud-arrow-up"></i> 已同步</span>';
+                    syncBadge = '<span class="text-[10px] bg-emerald-50 text-emerald-600 px-1.5 py-0.5 rounded border border-emerald-200"><i class="fa-solid fa-cloud-arrow-up"></i> 已同步</span>';
                 } else if (item.syncStatus === 'error') {
-                    syncBadge = '<span class="text-[10px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded border border-rose-200" title="雲端同步失敗"><i class="fa-solid fa-triangle-exclamation"></i> 同步失敗</span>';
+                    syncBadge = '<span class="text-[10px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded border border-rose-200"><i class="fa-solid fa-triangle-exclamation"></i> 同步失敗</span>';
                 } else {
                     syncBadge = '<span class="text-[10px] bg-amber-50 text-amber-600 px-1.5 py-0.5 rounded border border-amber-200"><i class="fa-solid fa-spinner fa-spin"></i> 同步中</span>';
                 }
+
+                let durationBadge = item.duration && item.duration !== '-' ? `<span class="text-[11px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded font-bold"><i class="fa-solid fa-stopwatch mr-1"></i>歷時：${item.duration}</span>` : '';
 
                 const card = document.createElement('div');
                 card.className = 'bg-slate-50 border border-slate-100 rounded-xl p-3 text-xs space-y-1.5 hover:bg-slate-100/60 transition';
                 card.innerHTML = `
                     <div class="flex justify-between items-center">
                         <span class="font-bold text-slate-700 text-sm"><i class="fa-solid fa-user-tag text-indigo-500 mr-1"></i> ${item.name}</span>
-                        <span class="px-2 py-0.5 rounded-full font-bold text-[11px] ${badgeColor}">${item.type}</span>
+                        <div class="flex items-center gap-1.5">
+                            ${durationBadge}
+                            <span class="px-2 py-0.5 rounded-full font-bold text-[11px] ${badgeColor}">${item.type}</span>
+                        </div>
                     </div>
                     <div class="text-slate-500 flex justify-between items-center">
                         <span><i class="fa-solid fa-location-pin text-emerald-500 mr-1"></i> ${item.unit}</span>
@@ -299,7 +308,6 @@
             });
         }
 
-        // 清除歷史
         function clearHistory() {
             if (confirm('確定要清除所有本地打卡紀錄嗎？')) {
                 historyData = [];
