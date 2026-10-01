@@ -15,7 +15,11 @@
     <header class="bg-indigo-600 text-white shadow-md py-4 px-6 flex flex-col md:flex-row justify-between items-center gap-4">
         <div class="flex items-center space-x-3">
             <i class="fa-solid fa-clipboard-user text-2xl"></i>
-            <h1 class="text-xl font-bold tracking-wider">工作人員出勤雲端打卡系統</h1>
+            <div>
+                <h1 class="text-xl font-bold tracking-wider">工作人員出勤雲端打卡系統</h1>
+                <!-- 即時時鐘顯示 -->
+                <p id="liveClock" class="text-xs text-indigo-200 font-mono mt-0.5"><i class="fa-regular fa-clock mr-1"></i>載入即時時間中...</p>
+            </div>
         </div>
         <!-- Apps Script 網址設定區 -->
         <div class="w-full md:w-auto flex items-center bg-indigo-700/80 rounded-lg p-1.5 border border-indigo-500">
@@ -75,13 +79,13 @@
                 <p id="lockStatusTip" class="text-[11px] text-slate-400 hidden"><i class="fa-solid fa-circle-info mr-1 text-indigo-500"></i>已啟用手機固定：姓名與單位已鎖定，修改需先取消上方勾選。</p>
             </div>
 
-            <!-- 打卡執行按鈕 (外觀極度明顯區分) -->
+            <!-- 打卡執行按鈕 -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
                 <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4">
                     <i class="fa-solid fa-fingerprint mr-2 text-amber-500"></i>執行打卡動作
                 </h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <!-- 出發按鈕 (藍色系) -->
+                    <!-- 出發按鈕 -->
                     <button onclick="clockIn('出發')" class="group relative overflow-hidden bg-gradient-to-br from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white py-5 px-6 rounded-2xl shadow-md hover:shadow-xl transition flex flex-col items-center justify-center gap-2 cursor-pointer border-2 border-blue-400/30">
                         <div class="flex items-center gap-2 text-xl font-black tracking-wide">
                             <i class="fa-solid fa-plane-departure text-2xl group-hover:scale-125 transition-transform text-blue-200"></i>
@@ -89,7 +93,7 @@
                         </div>
                         <span class="text-[11px] text-blue-200 bg-blue-900/40 px-2.5 py-0.5 rounded-full">行程開始紀錄</span>
                     </button>
-                    <!-- 回程按鈕 (綠色系) -->
+                    <!-- 回程按鈕 -->
                     <button onclick="clockIn('回程')" class="group relative overflow-hidden bg-gradient-to-br from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white py-5 px-6 rounded-2xl shadow-md hover:shadow-xl transition flex flex-col items-center justify-center gap-2 cursor-pointer border-2 border-emerald-400/30">
                         <div class="flex items-center gap-2 text-xl font-black tracking-wide">
                             <i class="fa-solid fa-plane-arrival text-2xl group-hover:scale-125 transition-transform text-emerald-200"></i>
@@ -127,6 +131,16 @@
 
     <!-- JavaScript 邏輯 -->
     <script>
+        // --- 1. 跨日自動清除檢查 ---
+        const todayStr = new Date().toISOString().split('T')[0]; // 取得格式 "YYYY-MM-DD"
+        const lastRecordedDate = localStorage.getItem('clock_record_date');
+
+        if (lastRecordedDate !== todayStr) {
+            // 如果發現日期不同（代表隔天了），自動清空本地紀錄
+            localStorage.removeItem('clock_history');
+            localStorage.setItem('clock_record_date', todayStr);
+        }
+
         let historyData = JSON.parse(localStorage.getItem('clock_history')) || [];
         let scriptUrl = localStorage.getItem('gas_script_url') || '';
 
@@ -144,6 +158,20 @@
         applyLockState(isLocked);
         renderHistory();
         checkGlobalWarnings();
+        checkStaffStatus();
+
+        // --- 2. 啟動即時時鐘 ---
+        setInterval(updateLiveClock, 1000);
+        function updateLiveClock() {
+            const now = new Date();
+            const timeString = now.getFullYear() + '/' + 
+                               String(now.getMonth() + 1).padStart(2, '0') + '/' + 
+                               String(now.getDate()).padStart(2, '0') + ' ' + 
+                               String(now.getHours()).padStart(2, '0') + ':' + 
+                               String(now.getMinutes()).padStart(2, '0') + ':' + 
+                               String(now.getSeconds()).padStart(2, '0');
+            document.getElementById('liveClock').innerHTML = `<i class="fa-regular fa-clock mr-1"></i>${timeString}`;
+        }
 
         function saveScriptUrl() {
             scriptUrl = document.getElementById('scriptUrlInput').value.trim();
@@ -195,7 +223,6 @@
             }
         }
 
-        // 檢查特定人員當前狀態（用來顯示「目前已出發，等待回程」提示）
         function checkStaffStatus() {
             const staffName = document.getElementById('staffNameInput').value.trim();
             const tipBox = document.getElementById('personalStatusTip');
@@ -218,14 +245,11 @@
             }
         }
 
-        // 檢查全體是否有未回程的人員
         function checkGlobalWarnings() {
             const alertBox = document.getElementById('warningAlertBox');
             const alertText = document.getElementById('warningAlertText');
             
-            // 找出每一個人的最新狀態
             const latestStatusMap = {};
-            // 歷史資料是由新到舊排的，所以要反向或從頭看
             historyData.forEach(item => {
                 if (!(item.name in latestStatusMap)) {
                     latestStatusMap[item.name] = item.type;
@@ -326,6 +350,7 @@
 
         function saveAndRenderHistory() {
             localStorage.setItem('clock_history', JSON.stringify(historyData));
+            localStorage.setItem('clock_record_date', todayStr);
             renderHistory();
         }
 
@@ -348,7 +373,6 @@
 
             filtered.forEach(item => {
                 const isDeparture = item.type === '出發';
-                // 出發用強烈藍色，回程用強烈綠色，一眼就能區分
                 const badgeStyle = isDeparture 
                     ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300' 
                     : 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300';
