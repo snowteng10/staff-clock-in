@@ -32,60 +32,41 @@
         <!-- 左側：打卡操作面板 (佔 2 欄) -->
         <div class="lg:col-span-2 space-y-6">
             
-            <!-- 目前選擇狀態指示 -->
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 flex flex-wrap items-center justify-between gap-4">
-                <div class="flex items-center gap-4">
-                    <div class="bg-indigo-50 text-indigo-600 p-3 rounded-xl">
-                        <i class="fa-solid fa-user-check text-xl"></i>
-                    </div>
+            <!-- 輸入姓名與單位卡片 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 space-y-5">
+                <div class="flex justify-between items-center">
+                    <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider">
+                        <i class="fa-solid fa-pen-to-square mr-2 text-indigo-500"></i>輸入打卡資訊
+                    </h2>
+                    <!-- 固定裝置設定 -->
+                    <label class="flex items-center gap-2 cursor-pointer bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg border border-indigo-200 transition">
+                        <input type="checkbox" id="lockDeviceCheckbox" onchange="toggleLockDevice()" class="w-4 h-4 text-indigo-600 rounded focus:ring-indigo-500 cursor-pointer">
+                        <span class="text-xs font-bold text-indigo-700"><i class="fa-solid fa-lock mr-1"></i>固定在此手機</span>
+                    </label>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- 姓名輸入 -->
                     <div>
-                        <span class="text-xs text-slate-400 block font-medium">目前選定人員</span>
-                        <span id="currentStaffDisplay" class="text-lg font-bold text-slate-700">尚未選擇</span>
+                        <label class="block text-xs font-bold text-slate-600 mb-1.5"><i class="fa-solid fa-user text-indigo-500 mr-1"></i> 工作人員姓名</label>
+                        <input type="text" id="staffNameInput" placeholder="請輸入姓名..." 
+                               class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-indigo-500 bg-slate-50 transition">
                     </div>
-                </div>
-                <div class="h-8 w-px bg-slate-200 hidden sm:block"></div>
-                <div class="flex items-center gap-4">
-                    <div class="bg-emerald-50 text-emerald-600 p-3 rounded-xl">
-                        <i class="fa-solid fa-location-dot text-xl"></i>
-                    </div>
+                    <!-- 單位輸入 -->
                     <div>
-                        <span class="text-xs text-slate-400 block font-medium">目前選定工作單位</span>
-                        <span id="currentUnitDisplay" class="text-lg font-bold text-slate-700">尚未選擇</span>
+                        <label class="block text-xs font-bold text-slate-600 mb-1.5"><i class="fa-solid fa-building text-emerald-500 mr-1"></i> 工作單位</label>
+                        <input type="text" id="unitNameInput" placeholder="請輸入工作單位..." 
+                               class="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-emerald-500 bg-slate-50 transition">
                     </div>
                 </div>
+                <p id="lockStatusTip" class="text-[11px] text-slate-400 hidden"><i class="fa-solid fa-circle-info mr-1 text-indigo-500"></i>已啟用手機固定：姓名與單位已鎖定，修改需先取消上方勾選。</p>
             </div>
 
-            <!-- 第一步：選擇工作人員 -->
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider"><i class="fa-solid fa-users mr-2 text-indigo-500"></i>1. 點選工作人員</h2>
-                    <div class="flex gap-2">
-                        <input type="text" id="newStaffName" placeholder="新增人員名字" class="text-xs border border-slate-200 rounded px-2 py-1 outline-none focus:border-indigo-500">
-                        <button onclick="addStaff()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 py-1 rounded transition cursor-pointer"><i class="fa-solid fa-plus"></i> 新增</button>
-                    </div>
-                </div>
-                <div id="staffListContainer" class="flex flex-wrap gap-2">
-                    <!-- 動態生成人員按鈕 -->
-                </div>
-            </div>
-
-            <!-- 第二步：選擇工作單位 -->
-            <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5">
-                <div class="flex justify-between items-center mb-3">
-                    <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider"><i class="fa-solid fa-building mr-2 text-emerald-500"></i>2. 點選工作單位</h2>
-                    <div class="flex gap-2">
-                        <input type="text" id="newUnitName" placeholder="新增單位名稱" class="text-xs border border-slate-200 rounded px-2 py-1 outline-none focus:border-emerald-500">
-                        <button onclick="addUnit()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs px-3 py-1 rounded transition cursor-pointer"><i class="fa-solid fa-plus"></i> 新增</button>
-                    </div>
-                </div>
-                <div id="unitListContainer" class="flex flex-wrap gap-2">
-                    <!-- 動態生成單位按鈕 -->
-                </div>
-            </div>
-
-            <!-- 第三步：打卡執行按鈕 -->
+            <!-- 打卡執行按鈕 -->
             <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4"><i class="fa-solid fa-fingerprint mr-2 text-amber-500"></i>3. 執行打卡動作</h2>
+                <h2 class="text-sm font-bold text-slate-600 uppercase tracking-wider mb-4">
+                    <i class="fa-solid fa-fingerprint mr-2 text-amber-500"></i>執行打卡動作
+                </h2>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <button onclick="clockIn('出發')" class="group relative overflow-hidden bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white py-4 px-6 rounded-xl font-bold shadow-md hover:shadow-lg transition flex items-center justify-center gap-3 cursor-pointer">
                         <i class="fa-solid fa-plane-departure text-xl group-hover:scale-110 transition-transform"></i>
@@ -125,20 +106,22 @@
 
     <!-- JavaScript 邏輯 -->
     <script>
-        // 預設資料
-        let staffList = JSON.parse(localStorage.getItem('staff_list')) || ['王小明', '李小華', '張大山', '林美麗'];
-        let unitList = JSON.parse(localStorage.getItem('unit_list')) || ['A棟大廳', 'B棟展場', '行政中心', '物流倉庫'];
         let historyData = JSON.parse(localStorage.getItem('clock_history')) || [];
-        
-        let selectedStaff = localStorage.getItem('selected_staff') || null;
-        let selectedUnit = localStorage.getItem('selected_unit') || null;
         let scriptUrl = localStorage.getItem('gas_script_url') || '';
 
-        // 初始化載入
+        // 初始化載入設定
         document.getElementById('scriptUrlInput').value = scriptUrl;
-        renderStaff();
-        renderUnits();
-        updateSelectionDisplay();
+        
+        const isLocked = localStorage.getItem('is_device_locked') === 'true';
+        document.getElementById('lockDeviceCheckbox').checked = isLocked;
+        
+        const savedStaff = localStorage.getItem('locked_staff_name') || '';
+        const savedUnit = localStorage.getItem('locked_unit_name') || '';
+        
+        document.getElementById('staffNameInput').value = savedStaff;
+        document.getElementById('unitNameInput').value = savedUnit;
+        
+        applyLockState(isLocked);
         renderHistory();
 
         // 儲存 Apps Script 網址
@@ -148,98 +131,72 @@
             alert('雲端 API 網址已儲存！');
         }
 
-        // 渲染人員按鈕
-        function renderStaff() {
-            const container = document.getElementById('staffListContainer');
-            container.innerHTML = '';
-            staffList.forEach(name => {
-                const isSelected = name === selectedStaff;
-                const btn = document.createElement('button');
-                btn.className = `px-4 py-2 rounded-xl text-sm font-medium transition cursor-pointer border flex items-center gap-2 ${
-                    isSelected 
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`;
-                btn.innerHTML = `<i class="fa-solid fa-user ${isSelected ? 'text-white' : 'text-slate-400'}"></i> ${name}`;
-                btn.onclick = () => {
-                    selectedStaff = name;
-                    localStorage.setItem('selected_staff', name);
-                    renderStaff();
-                    updateSelectionDisplay();
-                };
-                container.appendChild(btn);
-            });
-        }
+        // 切換固定手機狀態
+        function toggleLockDevice() {
+            const isChecked = document.getElementById('lockDeviceCheckbox').checked;
+            const staffName = document.getElementById('staffNameInput').value.trim();
+            const unitName = document.getElementById('unitNameInput').value.trim();
 
-        // 渲染單位按鈕
-        function renderUnits() {
-            const container = document.getElementById('unitListContainer');
-            container.innerHTML = '';
-            unitList.forEach(unit => {
-                const isSelected = unit === selectedUnit;
-                const btn = document.createElement('button');
-                btn.className = `px-4 py-2 rounded-xl text-sm font-medium transition cursor-pointer border flex items-center gap-2 ${
-                    isSelected 
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm' 
-                        : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                }`;
-                btn.innerHTML = `<i class="fa-solid fa-building ${isSelected ? 'text-white' : 'text-slate-400'}"></i> ${unit}`;
-                btn.onclick = () => {
-                    selectedUnit = unit;
-                    localStorage.setItem('selected_unit', unit);
-                    renderUnits();
-                    updateSelectionDisplay();
-                };
-                container.appendChild(btn);
-            });
-        }
-
-        // 新增人員
-        function addStaff() {
-            const input = document.getElementById('newStaffName');
-            const name = input.value.trim();
-            if (name && !staffList.includes(name)) {
-                staffList.push(name);
-                localStorage.setItem('staff_list', JSON.stringify(staffList));
-                input.value = '';
-                renderStaff();
+            if (isChecked) {
+                if (!staffName || !unitName) {
+                    alert('請先輸入姓名與工作單位，才能進行固定！');
+                    document.getElementById('lockDeviceCheckbox').checked = false;
+                    return;
+                }
+                localStorage.setItem('is_device_locked', 'true');
+                localStorage.setItem('locked_staff_name', staffName);
+                localStorage.setItem('locked_unit_name', unitName);
+                alert('已成功固定此手機！下次開啟將自動帶入您的姓名與單位。');
             } else {
-                alert('請輸入有效或未重複的名字');
+                localStorage.setItem('is_device_locked', 'false');
+                localStorage.removeItem('locked_staff_name');
+                localStorage.removeItem('locked_unit_name');
+                alert('已解除固定。');
             }
+            applyLockState(isChecked);
         }
 
-        // 新增單位
-        function addUnit() {
-            const input = document.getElementById('newUnitName');
-            const unit = input.value.trim();
-            if (unit && !unitList.includes(unit)) {
-                unitList.push(unit);
-                localStorage.setItem('unit_list', JSON.stringify(unitList));
-                input.value = '';
-                renderUnits();
+        // 根據固定狀態鎖定或解鎖輸入框
+        function applyLockState(locked) {
+            const staffInput = document.getElementById('staffNameInput');
+            const unitInput = document.getElementById('unitNameInput');
+            const tip = document.getElementById('lockStatusTip');
+
+            if (locked) {
+                staffInput.setAttribute('readonly', true);
+                unitInput.setAttribute('readonly', true);
+                staffInput.classList.add('bg-slate-100', 'text-slate-500');
+                unitInput.classList.add('bg-slate-100', 'text-slate-500');
+                tip.classList.remove('hidden');
             } else {
-                alert('請輸入有效或未重複的單位名稱');
+                staffInput.removeAttribute('readonly');
+                unitInput.removeAttribute('readonly');
+                staffInput.classList.remove('bg-slate-100', 'text-slate-500');
+                unitInput.classList.remove('bg-slate-100', 'text-slate-500');
+                tip.classList.add('hidden');
             }
-        }
-
-        // 更新目前選擇畫面
-        function updateSelectionDisplay() {
-            document.getElementById('currentStaffDisplay').innerText = selectedStaff || '尚未選擇';
-            document.getElementById('currentStaffDisplay').className = selectedStaff ? 'text-lg font-bold text-indigo-600' : 'text-lg font-bold text-slate-400';
-            
-            document.getElementById('currentUnitDisplay').innerText = selectedUnit || '尚未選擇';
-            document.getElementById('currentUnitDisplay').className = selectedUnit ? 'text-lg font-bold text-emerald-600' : 'text-lg font-bold text-slate-400';
         }
 
         // 執行打卡
         async function clockIn(type) {
-            if (!selectedStaff) {
-                alert('請先點選工作人員！');
+            const staffName = document.getElementById('staffNameInput').value.trim();
+            const unitName = document.getElementById('unitNameInput').value.trim();
+
+            if (!staffName) {
+                alert('請輸入工作人員姓名！');
+                document.getElementById('staffNameInput').focus();
                 return;
             }
-            if (!selectedUnit) {
-                alert('請先點選工作單位！');
+            if (!unitName) {
+                alert('請輸入工作單位！');
+                document.getElementById('unitNameInput').focus();
                 return;
+            }
+
+            // 如果沒有勾選固定，但也順便記錄最後一次輸入
+            if (!document.getElementById('lockDeviceCheckbox').checked) {
+                localStorage.setItem('locked_staff_name', staffName);
+                localStorage.setItem('locked_unit_name', unitName);
             }
 
             const now = new Date();
@@ -252,8 +209,8 @@
 
             const record = {
                 time: timeString,
-                name: selectedStaff,
-                unit: selectedUnit,
+                name: staffName,
+                unit: unitName,
                 type: type,
                 syncStatus: 'syncing'
             };
@@ -270,8 +227,8 @@
                         mode: 'no-cors', // 繞過跨域阻擋
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            name: selectedStaff,
-                            unit: selectedUnit,
+                            name: staffName,
+                            unit: unitName,
                             type: type
                         })
                     });
