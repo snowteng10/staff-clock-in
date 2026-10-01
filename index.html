@@ -132,11 +132,10 @@
     <!-- JavaScript 邏輯 -->
     <script>
         // --- 1. 跨日自動清除檢查 ---
-        const todayStr = new Date().toISOString().split('T')[0]; // 取得格式 "YYYY-MM-DD"
+        const todayStr = new Date().toISOString().split('T')[0];
         const lastRecordedDate = localStorage.getItem('clock_record_date');
 
         if (lastRecordedDate !== todayStr) {
-            // 如果發現日期不同（代表隔天了），自動清空本地紀錄
             localStorage.removeItem('clock_history');
             localStorage.setItem('clock_record_date', todayStr);
         }
@@ -233,11 +232,11 @@
                 return;
             }
 
-            const lastRecord = historyData.find(item => item.name === staffName);
-            if (lastRecord && lastRecord.type === '出發') {
+            const activeRecord = historyData.find(item => item.name === staffName && item.status === '進行中');
+            if (activeRecord) {
                 tipBox.classList.remove('hidden', 'bg-slate-100', 'text-slate-600', 'bg-emerald-50', 'text-emerald-700');
                 tipBox.classList.add('bg-amber-50', 'text-amber-800', 'border', 'border-amber-200');
-                tipText.innerHTML = `狀態提示：<strong>${staffName}</strong> 目前處於【已出發】狀態，尚未回程（出發時間：${lastRecord.time}）`;
+                tipText.innerHTML = `狀態提示：<strong>${staffName}</strong> 目前處於【已出發】狀態，尚未回程（出發時間：${activeRecord.startTime}）`;
             } else {
                 tipBox.classList.remove('hidden', 'bg-amber-50', 'text-amber-800', 'border', 'border-amber-200');
                 tipBox.classList.add('bg-slate-100', 'text-slate-600');
@@ -249,19 +248,7 @@
             const alertBox = document.getElementById('warningAlertBox');
             const alertText = document.getElementById('warningAlertText');
             
-            const latestStatusMap = {};
-            historyData.forEach(item => {
-                if (!(item.name in latestStatusMap)) {
-                    latestStatusMap[item.name] = item.type;
-                }
-            });
-
-            const notReturnedList = [];
-            for (let name in latestStatusMap) {
-                if (latestStatusMap[name] === '出發') {
-                    notReturnedList.push(name);
-                }
-            }
+            const notReturnedList = historyData.filter(item => item.status === '進行中').map(item => item.name);
 
             if (notReturnedList.length > 0) {
                 alertBox.classList.remove('hidden');
@@ -299,52 +286,78 @@
                                String(now.getMinutes()).padStart(2, '0') + ':' + 
                                String(now.getSeconds()).padStart(2, '0');
 
-            let durationText = "-";
-            const lastRecord = historyData.find(item => item.name === staffName);
-            if (lastRecord && type === "回程" && lastRecord.type === "出發") {
-                const startTime = new Date(lastRecord.time.replace(/-/g, "/"));
+            if (type === '出發') {
+                // 檢查是否已有進行中的行程
+                const existingActive = historyData.find(item => item.name === staffName && item.status === '進行中');
+                if (existingActive) {
+                    alert(`${staffName} 目前已有進行中的行程（出發於 ${existingActive.startTime}），請先打卡回程！`);
+                    return;
+                }
+
+                const newRecord = {
+                    id: Date.now(),
+                    name: staffName,
+                    unit: unitName,
+                    startTime: timeString,
+                    endTime: '-',
+                    duration: '-',
+                    status: '進行中',
+                    syncStatus: 'syncing'
+                };
+                historyData.unshift(newRecord);
+                saveAndRenderHistory();
+                syncWithCloud(newRecord, '出發');
+
+            } else if (type === '回程') {
+                // 尋找該人員尚未回程的紀錄
+                const targetRecord = historyData.find(item => item.name === staffName && item.status === '進行中');
+                if (!targetRecord) {
+                    alert(`${staffName} 目前沒有對應的「出發」紀錄，無法打卡回程！`);
+                    return;
+                }
+
+                const startTime = new Date(targetRecord.startTime.replace(/-/g, "/"));
                 const diffMs = now - startTime;
                 const diffMins = Math.floor(diffMs / 60000);
                 const hours = Math.floor(diffMins / 60);
                 const mins = diffMins % 60;
-                durationText = (hours > 0 ? hours + "小時 " : "") + mins + "分鐘";
+                
+                targetRecord.endTime = timeString;
+                targetRecord.duration = (hours > 0 ? hours + "小時 " : "") + mins + "分鐘";
+                targetRecord.status = '已完成';
+                targetRecord.syncStatus = 'syncing';
+
+                saveAndRenderHistory();
+                syncWithCloud(targetRecord, '回程');
             }
 
-            const record = {
-                time: timeString,
-                name: staffName,
-                unit: unitName,
-                type: type,
-                duration: durationText,
-                syncStatus: 'syncing'
-            };
-
-            historyData.unshift(record);
-            saveAndRenderHistory();
             checkStaffStatus();
             checkGlobalWarnings();
+        }
 
-            if (scriptUrl) {
-                try {
-                    await fetch(scriptUrl, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            name: staffName,
-                            unit: unitName,
-                            type: type
-                        })
-                    });
-                    record.syncStatus = 'success';
-                } catch (error) {
-                    console.error('雲端同步錯誤:', error);
-                    record.syncStatus = 'error';
-                }
-            } else {
+        async function syncWithCloud(record, type) {
+            if (!scriptUrl) {
                 record.syncStatus = 'local_only';
+                saveAndRenderHistory();
+                return;
             }
-            
+
+            try {
+                await fetch(scriptUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        name: record.name,
+                        unit: record.unit,
+                        type: type
+                    })
+                });
+                record.syncStatus = 'success';
+            } catch (error) {
+                console.error('雲端同步錯誤:', error);
+                record.syncStatus = 'error';
+            }
             saveAndRenderHistory();
         }
 
@@ -362,8 +375,8 @@
             const filtered = historyData.filter(item => 
                 item.name.toLowerCase().includes(keyword) || 
                 item.unit.toLowerCase().includes(keyword) || 
-                item.type.toLowerCase().includes(keyword) ||
-                item.time.includes(keyword)
+                item.startTime.includes(keyword) ||
+                item.endTime.includes(keyword)
             );
 
             if (filtered.length === 0) {
@@ -372,11 +385,11 @@
             }
 
             filtered.forEach(item => {
-                const isDeparture = item.type === '出發';
-                const badgeStyle = isDeparture 
-                    ? 'bg-blue-600 text-white shadow-sm ring-2 ring-blue-300' 
+                const isInProgress = item.status === '進行中';
+                const badgeStyle = isInProgress 
+                    ? 'bg-amber-500 text-white shadow-sm ring-2 ring-amber-300' 
                     : 'bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300';
-                const iconClass = isDeparture ? 'fa-plane-departure text-blue-200' : 'fa-plane-arrival text-emerald-200';
+                const iconClass = isInProgress ? 'fa-spinner fa-spin text-amber-100' : 'fa-circle-check text-emerald-100';
                 
                 let syncBadge = '';
                 if (item.syncStatus === 'success') {
@@ -397,7 +410,7 @@
                         <div class="flex items-center gap-2">
                             ${durationBadge}
                             <span class="px-2.5 py-1 rounded-lg font-bold text-xs flex items-center gap-1.5 ${badgeStyle}">
-                                <i class="fa-solid ${iconClass}"></i> ${item.type}
+                                <i class="fa-solid ${iconClass}"></i> ${item.status}
                             </span>
                         </div>
                     </div>
@@ -406,7 +419,8 @@
                         ${syncBadge}
                     </div>
                     <div class="text-[11px] text-slate-400 pt-1 border-t border-slate-200/60 flex justify-between">
-                        <span><i class="fa-regular fa-clock mr-1"></i> ${item.time}</span>
+                        <span><i class="fa-solid fa-plane-departure text-blue-500 mr-1"></i>出發: ${item.startTime}</span>
+                        <span><i class="fa-solid fa-plane-arrival text-emerald-500 mr-1"></i>回程: ${item.endTime}</span>
                     </div>
                 `;
                 container.appendChild(card);
