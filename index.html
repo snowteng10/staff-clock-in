@@ -8,9 +8,6 @@
         :root {
             --primary-color: #4f46e5;
             --primary-hover: #4338ca;
-            --success-color: #10b981;
-            --success-hover: #059669;
-            --danger-color: #ef4444;
             --bg-color: #f8fafc;
             --card-bg: #ffffff;
             --text-main: #1e293b;
@@ -95,7 +92,7 @@
             border: none;
             border-radius: 8px;
             cursor: pointer;
-            transition: background-color 0.2s, opacity 0.2s;
+            transition: all 0.2s;
         }
 
         .btn-primary {
@@ -111,22 +108,31 @@
             gap: 12px;
         }
 
+        /* 🚀 區分打卡按鈕造型 */
         .btn-departure {
             flex: 1;
-            background-color: #0284c7;
+            background: linear-gradient(135deg, #0284c7, #0369a1);
             color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
+            font-size: 16px;
         }
         .btn-departure:hover {
-            background-color: #0369a1;
+            opacity: 0.95;
+            transform: translateY(-1px);
         }
 
         .btn-return {
             flex: 1;
-            background-color: var(--success-color);
+            background: linear-gradient(135deg, #10b981, #059669);
             color: white;
+            border-radius: 30px; 
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
+            font-size: 16px;
         }
         .btn-return:hover {
-            background-color: var(--success-hover);
+            opacity: 0.95;
+            transform: translateY(-1px);
         }
 
         .status-text {
@@ -147,42 +153,45 @@
             margin-bottom: 12px;
         }
 
-        /* 簡潔精緻的刪除按鈕樣式 */
-        .btn-ghost-danger {
-            background: transparent;
-            color: var(--danger-color);
-            border: 1px solid #fca5a5;
-            padding: 6px 12px;
-            font-size: 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: all 0.2s;
-        }
-        .btn-ghost-danger:hover {
-            background-color: #fef2f2;
-        }
-
-        .delete-container {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 10px;
-        }
-
         .history-list {
-            max-height: 160px;
+            max-height: 200px;
             overflow-y: auto;
             font-size: 13px;
             color: var(--text-secondary);
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 8px;
         }
 
+        /* 每筆紀錄的卡片化設計，右側帶有刪除按鈕 */
         .history-item {
-            padding: 6px 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
             background-color: var(--bg-color);
-            border-radius: 6px;
+            border-radius: 8px;
             border-left: 3px solid var(--primary-color);
+        }
+
+        .history-info {
+            line-height: 1.4;
+        }
+
+        /* 單筆刪除圖示按鈕 */
+        .btn-delete-icon {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .btn-delete-icon:hover {
+            background-color: #fee2e2;
+            color: #ef4444;
         }
     </style>
 </head>
@@ -223,17 +232,11 @@
             <div id="historyContainer" class="history-list">
                 <div style="text-align: center; color: #94a3b8; padding: 10px;">尚無打卡紀錄</div>
             </div>
-
-            <!-- 簡潔化的刪除按鈕區塊 -->
-            <div class="delete-container">
-                <button class="btn-ghost-danger" onclick="deleteLastRecord()">🗑️ 刪除最後一筆紀錄</button>
-            </div>
         </div>
     </div>
 
     <script>
-        // 請在此填入您的 Google Apps Script 部署網址
-        const scriptUrl = ""; 
+        const scriptUrl = ""; // 請在此填入您的 Google Apps Script 部署網址
 
         let historyData = [];
 
@@ -324,13 +327,10 @@
             }
         }
 
-        function deleteLastRecord() {
-            if (historyData.length === 0) {
-                alert('目前沒有任何紀錄可刪除！');
-                return;
-            }
-            if (confirm('確定要刪除最後一筆紀錄嗎？')) {
-                historyData.shift();
+        // 刪除指定的某一筆紀錄
+        function deleteRecord(index) {
+            if (confirm('確定要刪除這筆紀錄嗎？')) {
+                historyData.splice(index, 1);
                 renderHistory();
             }
         }
@@ -344,21 +344,16 @@
             }
 
             let html = '';
-            let totalMins = 0;
-
-            historyData.forEach(item => {
+            historyData.forEach((item, index) => {
                 html += `<div class="history-item">
-                    <strong>${item.name} (${item.unit})</strong><br>
-                    出發: ${item.startTime} | 回程: ${item.endTime}<br>
-                    歷時: ${item.duration} [${item.status}]
+                    <div class="history-info">
+                        <strong>${item.name} (${item.unit})</strong><br>
+                        出發: ${item.startTime} | 回程: ${item.endTime}<br>
+                        歷時: ${item.duration} [${item.status}]
+                    </div>
+                    <button class="btn-delete-icon" onclick="deleteRecord(${index})" title="刪除此筆紀錄">🗑️️</button>
                 </div>`;
-                
-                if (item.status === '已完成') {
-                    // 簡單粗略累計顯示
-                    // 實際計算可依需求調整
-                }
             });
-
             container.innerHTML = html;
         }
     </script>
