@@ -1,111 +1,418 @@
-async function clockIn(type) {
-            const staffName = document.getElementById('staffNameInput').value.trim();
-            const unitName = document.getElementById('unitNameInput').value.trim();
-
-            if (!staffName) {
-                alert('請輸入工作人員姓名！');
-                document.getElementById('staffNameInput').focus();
-                return;
-            }
-            if (!unitName) {
-                alert('請輸入工作單位！');
-                document.getElementById('unitNameInput').focus();
-                return;
-            }
-
-            if (!document.getElementById('lockDeviceCheckbox').checked) {
-                localStorage.setItem('locked_staff_name', staffName);
-                localStorage.setItem('locked_unit_name', unitName);
-            }
-
-            const now = new Date();
-            const timeString = now.getFullYear() + '-' + 
-                               String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-                               String(now.getDate()).padStart(2, '0') + ' ' + 
-                               String(now.getHours()).padStart(2, '0') + ':' + 
-                               String(now.getMinutes()).padStart(2, '0') + ':' + 
-                               String(now.getSeconds()).padStart(2, '0');
-
-            if (type === '出發') {
-                const existingActive = historyData.find(item => item.name === staffName && item.status === '進行中');
-                if (existingActive) {
-                    alert(`${staffName} 目前已有進行中的行程，請先打卡回程！`);
-                    return;
-                }
-
-                const newRecord = {
-                    id: Date.now(),
-                    rowIndex: null, // 稍後由雲端回傳行號
-                    name: staffName,
-                    unit: unitName,
-                    startTime: timeString,
-                    endTime: '-',
-                    duration: '-',
-                    status: '進行中',
-                    syncStatus: 'syncing'
-                };
-                historyData.unshift(newRecord);
-                saveAndRenderHistory();
-                await syncWithCloud(newRecord, '出發');
-
-            } else if (type === '回程') {
-                const targetRecord = historyData.find(item => item.name === staffName && item.status === '進行中');
-                if (!targetRecord) {
-                    alert(`${staffName} 目前沒有對應的「出發」紀錄，無法打卡回程！`);
-                    return;
-                }
-
-                const startTime = new Date(targetRecord.startTime.replace(/-/g, "/"));
-                const diffMs = now - startTime;
-                const diffMins = Math.floor(diffMs / 60000);
-                const hours = Math.floor(diffMins / 60);
-                const mins = diffMins % 60;
-                
-                targetRecord.endTime = timeString;
-                targetRecord.duration = (hours > 0 ? hours + "小時 " : "") + mins + "分鐘";
-                targetRecord.status = '已完成';
-                targetRecord.syncStatus = 'syncing';
-
-                saveAndRenderHistory();
-                await syncWithCloud(targetRecord, '回程');
-            }
-
-            checkStaffStatus();
-            checkGlobalWarnings();
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人專屬上下班打卡系統</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        *, ::before, ::after { box-sizing: border-box; border-width: 0; border-style: solid; border-color: #e2e8f0; }
+        html { line-height: 1.5; -webkit-text-size-adjust: 100%; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+        body { margin: 0; background-color: #f8fafc; color: #1e293b; min-height: 100vh; display: flex; flex-direction: column; justify-content: space-between; }
+        h1, h2, h3, p { margin: 0; }
+        button { cursor: pointer; background-color: transparent; }
+        input, select { font-family: inherit; font-size: 100%; color: inherit; }
+        
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .space-x-3 > * + * { margin-left: 0.75rem; }
+        .space-y-4 > * + * { margin-top: 1rem; }
+        .space-y-6 > * + * { margin-top: 1.5rem; }
+        .w-full { width: 100%; }
+        .max-w-xl { max-width: 36rem; margin-left: auto; margin-right: auto; }
+        .mx-auto { margin-left: auto; margin-right: auto; }
+        .px-4 { padding-left: 1rem; padding-right: 1rem; }
+        .py-4 { padding-top: 1rem; padding-bottom: 1rem; }
+        .py-8 { padding-top: 2rem; padding-bottom: 2rem; }
+        .p-6 { padding: 1.5rem; }
+        .bg-white { background-color: #ffffff; }
+        .bg-slate-50 { background-color: #f8fafc; }
+        .bg-indigo-600 { background-color: #4f46e5; }
+        .text-white { color: #ffffff; }
+        .text-slate-800 { color: #1e293b; }
+        .text-slate-900 { color: #0f172a; }
+        .text-slate-500 { color: #64748b; }
+        .text-slate-400 { color: #94a3b8; }
+        .text-indigo-600 { color: #4f46e5; }
+        .font-bold { font-weight: 700; }
+        .font-semibold { font-weight: 600; }
+        .text-xs { font-size: 0.75rem; }
+        .text-sm { font-size: 0.875rem; }
+        .text-base { font-size: 1rem; }
+        .text-lg { font-size: 1.125rem; }
+        .text-2xl { font-size: 1.5rem; }
+        .rounded-xl { border-radius: 0.75rem; }
+        .rounded-2xl { border-radius: 1rem; }
+        .border { border-width: 1px; }
+        .border-slate-200 { border-color: #e2e8f0; }
+        .shadow-sm { box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); }
+        .shadow-md { box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .sticky { position: sticky; }
+        .top-0 { top: 0; }
+        .z-10 { z-index: 10; }
+        .hidden { display: none !important; }
+        .flex-grow { flex-grow: 1; }
+        
+        @media print {
+            body { background: white !important; }
+            header, .no-print { display: none !important; }
         }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between">
 
-        async function syncWithCloud(record, type) {
-            if (!scriptUrl) {
-                record.syncStatus = 'local_only';
-                saveAndRenderHistory();
-                return;
-            }
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm no-print">
+        <div class="max-w-xl mx-auto px-4 py-4 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow-md">
+                    <i class="fa-solid fa-user-clock text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 tracking-tight">個人上下班打卡系統</h1>
+                    <p class="text-xs text-slate-500">固定裝置專用版</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <button id="open-config-btn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium px-3 py-2 rounded-xl transition flex items-center">
+                    <i class="fa-solid fa-gear mr-1.5 text-indigo-600"></i> 設定身分與雲端
+                </button>
+            </div>
+        </div>
+    </header>
 
+    <main class="max-w-xl mx-auto px-4 py-8 w-full flex-grow space-y-6">
+        
+        <!-- 即時時鐘與身分資訊卡片 -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-center space-y-3">
+            <div id="user-profile-badge" class="inline-block bg-indigo-50 text-indigo-700 font-semibold text-sm px-4 py-1 rounded-full border border-indigo-100">
+                尚未設定身分（請點右上角設定）
+            </div>
+            <div>
+                <div id="live-clock" class="text-4xl font-bold text-indigo-600 font-mono tracking-wider">00:00:00</div>
+                <div id="live-date" class="text-sm text-slate-400 mt-1">YYYY-MM-DD</div>
+            </div>
+        </div>
+
+        <!-- 打卡操作區 -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-4">
+            <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider mb-2">每日打卡作業</h2>
+            
+            <div class="grid grid-cols-1 gap-4">
+                <!-- 上班打卡按鈕 -->
+                <button id="clock-in-btn" style="background:linear-gradient(to right, #059669, #10b981); color:white; font-weight:bold; padding:1rem; border-radius:1rem; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); display:flex; align-items:center; justify-content:center; gap:0.75rem; font-size:1.125rem;">
+                    <i class="fa-solid fa-right-to-bracket text-xl"></i>
+                    <div style="text-align: left;">
+                        <div>上班打卡 (開始)</div>
+                        <div id="clock-in-status" style="font-size:0.75rem; font-weight:normal; opacity:0.9;">尚未打卡</div>
+                    </div>
+                </button>
+
+                <!-- 下班打卡按鈕 -->
+                <button id="clock-out-btn" style="background:linear-gradient(to right, #4f46e5, #7c3aed); color:white; font-weight:bold; padding:1rem; border-radius:1rem; box-shadow:0 4px 6px -1px rgba(0,0,0,0.1); display:flex; align-items:center; justify-content:center; gap:0.75rem; font-size:1.125rem;">
+                    <i class="fa-solid fa-right-from-bracket text-xl"></i>
+                    <div style="text-align: left;">
+                        <div>下班打卡 (結束)</div>
+                        <div id="clock-out-status" style="font-size:0.75rem; font-weight:normal; opacity:0.9;">尚未打卡</div>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- 今日打卡紀錄摘要 -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 space-y-3">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                <h2 class="text-sm font-bold text-slate-800 flex items-center">
+                    <i class="fa-solid fa-calendar-check text-indigo-500 mr-2"></i> 今日打卡狀態
+                </h2>
+                <span id="sync-status" style="font-size:10px; background:#f1f5f9; color:#64748b; padding:0.125rem 0.5rem; border-radius:9999px;">未同步雲端</span>
+            </div>
+            <div id="today-record-summary" class="text-sm text-slate-600 space-y-2">
+                <p>日期：<span id="summary-date">-</span></p>
+                <p>上班時間：<span id="summary-in" class="font-bold text-slate-800">-</span></p>
+                <p>下班時間：<span id="summary-out" class="font-bold text-slate-800">-</span></p>
+            </div>
+        </div>
+    </main>
+
+    <!-- 設定 Modal (鎖定姓名、組別與雲端網址) -->
+    <div id="config-modal" class="hidden" style="position:fixed; inset:0; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); z-index:50; display:flex; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:1rem; padding:1.5rem; max-width:28rem; width:100%; margin:0 1rem; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <h3 style="font-weight:700; font-size:1.125rem; color:#0f172a; margin-bottom:0.25rem; display:flex; align-items:center;">
+                <i class="fa-solid fa-user-gear text-indigo-600" style="color:#4f46e5; margin-right:0.5rem;"></i> 設定個人身分與雲端
+            </h3>
+            <p style="font-size:0.75rem; color:#94a3b8; margin-bottom:1.25rem;">此手機會永久記憶您的身分，不用重複輸入。</p>
+            
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; font-size:0.75rem; font-weight:500; color:#64748b; margin-bottom:0.25rem;">您的姓名</label>
+                <input type="text" id="input-name" placeholder="例如：王小明" style="width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:0.75rem; padding:0.75rem; font-size:0.875rem;">
+            </div>
+
+            <div style="margin-bottom:1rem;">
+                <label style="display:block; font-size:0.75rem; font-weight:500; color:#64748b; margin-bottom:0.25rem;">所屬組別</label>
+                <input type="text" id="input-group" placeholder="例如：A組 / 藥局" style="width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:0.75rem; padding:0.75rem; font-size:0.875rem;">
+            </div>
+
+            <div style="margin-bottom:1.5rem;">
+                <label style="display:block; font-size:0.75rem; font-weight:500; color:#64748b; margin-bottom:0.25rem;">Google Apps Script 網址</label>
+                <input type="text" id="script-url-input" placeholder="https://script.google.com/macros/s/.../exec" style="width:100%; background:#f8fafc; border:1px solid #cbd5e1; border-radius:0.75rem; padding:0.75rem; font-size:0.75rem; font-family:monospace;">
+            </div>
+
+            <div style="display:flex; gap:0.5rem;">
+                <button id="config-cancel-btn" style="flex:1; background:#f1f5f9; color:#334155; padding:0.625rem; border-radius:0.75rem; font-size:0.875rem; font-weight:500;">取消</button>
+                <button id="config-save-btn" style="flex:1; background:#4f46e5; color:white; padding:0.625rem; border-radius:0.75rem; font-size:0.875rem; font-weight:500;">儲存設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 訊息 Modal -->
+    <div id="custom-modal" class="hidden" style="position:fixed; inset:0; background:rgba(15,23,42,0.5); backdrop-filter:blur(4px); z-index:50; display:flex; align-items:center; justify-content:center;">
+        <div style="background:white; border-radius:1rem; padding:1.5rem; max-width:24rem; width:100%; margin:0 1rem; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+            <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:1rem;">
+                <div id="modal-icon-container" style="width:2.5rem; height:2.5rem; border-radius:9999px; display:flex; align-items:center; justify-content:center; background:#e0e7ff; color:#4f46e5;">
+                    <i id="modal-icon" class="fa-solid fa-info"></i>
+                </div>
+                <div><h3 id="modal-title" style="font-weight:700; color:#0f172a;">提示訊息</h3></div>
+            </div>
+            <p id="modal-message" style="font-size:0.875rem; color:#475569; margin-bottom:1.5rem; line-height:1.5;"></p>
+            <div style="display:flex; justify-content:flex-end;">
+                <button id="modal-close-btn" style="background:#4f46e5; color:white; padding:0.5rem 1.25rem; border-radius:0.75rem; font-size:0.875rem; font-weight:500;">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const liveClockEl = document.getElementById('live-clock');
+        const liveDateEl = document.getElementById('live-date');
+        const userProfileBadge = document.getElementById('user-profile-badge');
+        const clockInBtn = document.getElementById('clock-in-btn');
+        const clockOutBtn = document.getElementById('clock-out-btn');
+        const clockInStatus = document.getElementById('clock-in-status');
+        const clockOutStatus = document.getElementById('clock-out-status');
+        const summaryDate = document.getElementById('summary-date');
+        const summaryIn = document.getElementById('summary-in');
+        const summaryOut = document.getElementById('summary-out');
+        const syncStatus = document.getElementById('sync-status');
+        
+        const openConfigBtn = document.getElementById('open-config-btn');
+        const configModal = document.getElementById('config-modal');
+        const inputName = document.getElementById('input-name');
+        const inputGroup = document.getElementById('input-group');
+        const scriptUrlInput = document.getElementById('script-url-input');
+        const configCancelBtn = document.getElementById('config-cancel-btn');
+        const configSaveBtn = document.getElementById('config-save-btn');
+
+        const customModal = document.getElementById('custom-modal');
+        const modalMessage = document.getElementById('modal-message');
+        const modalTitle = document.getElementById('modal-title');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const modalIconContainer = document.getElementById('modal-icon-container');
+        const modalIcon = document.getElementById('modal-icon');
+
+        // 資料變數
+        let userName = localStorage.getItem('fixed_user_name') || '';
+        let userGroup = localStorage.getItem('fixed_user_group') || '';
+        let scriptUrl = localStorage.getItem('fixed_script_url') || '';
+        
+        // 每日打卡資料 (以日期字串 YYYY-MM-DD 為 Key)
+        let todayKey = new Date().toISOString().slice(0, 10);
+        let attendanceData = JSON.parse(localStorage.getItem('fixed_attendance_record') || '{}');
+
+        let audioCtx = null;
+
+        // 點擊自動解鎖音效
+        document.addEventListener('click', () => {
             try {
-                // 注意：若使用 Google Apps Script 的 doPost，跨網域 POST 通常會觸發 CORS 導致無法取得回傳的 JSON (會變成 opaque 回應)。
-                // 建議改用 navigator.sendBeacon 或確保 Apps Script 回傳標頭正確。
-                // 這裡我們改用一般 fetch，並透過抓取後端寫入機制。由於 CORS 限制，若無法直接讀取回傳值，我們直接以「目前試算表最後一列」作為預設對應。
-                
-                const response = await fetch(scriptUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // 避免 CORS preflight 失敗
-                    body: JSON.stringify({
-                        name: record.name,
-                        unit: record.unit,
-                        type: type,
-                        rowIndex: record.rowIndex
-                    })
-                });
-                
-                const result = await response.json();
-                if (type === '出發' && result.rowIndex) {
-                    record.rowIndex = result.rowIndex; // 記錄雲端試算表的行號
-                }
-                record.syncStatus = 'success';
-            } catch (error) {
-                console.error('雲端同步或解析錯誤:', error);
-                // 即使因為 CORS 讀不到 JSON，資料其實已經寫入試算表了
-                record.syncStatus = 'success'; 
-            }
-            saveAndRenderHistory();
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+            } catch (e) {}
+        }, { once: true });
+
+        function playBeep() {
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                if (audioCtx.state === 'suspended') audioCtx.resume();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(587.33, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.08);
+                gain.gain.setValueAtTime(0.5, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.3);
+            } catch (e) {}
         }
+
+        function initApp() {
+            updateClock();
+            setInterval(updateClock, 1000);
+            renderUI();
+
+            if (!userName || !userGroup) {
+                configModal.classList.remove('hidden');
+            } else if (scriptUrl) {
+                syncStatus.textContent = '已連結雲端';
+                syncStatus.style.background = '#d1fae5';
+                syncStatus.style.color = '#047857';
+            }
+        }
+
+        function updateClock() {
+            const now = new Date();
+            liveClockEl.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            liveDateEl.textContent = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            
+            // 跨日自動檢查
+            const currentDateStr = now.toISOString().slice(0, 10);
+            if (currentDateStr !== todayKey) {
+                todayKey = currentDateStr;
+                renderUI();
+            }
+        }
+
+        function renderUI() {
+            if (userName && userGroup) {
+                userProfileBadge.textContent = `組別：${userGroup} | 姓名：${userName}`;
+            } else {
+                userProfileBadge.textContent = '尚未設定身分（請點右上角設定）';
+            }
+
+            summaryDate.textContent = todayKey;
+            const record = attendanceData[todayKey] || {};
+
+            if (record.clockIn) {
+                clockInStatus.textContent = `已於 ${record.clockIn} 打卡`;
+                summaryIn.textContent = record.clockIn;
+            } else {
+                clockInStatus.textContent = '尚未打卡';
+                summaryIn.textContent = '-';
+            }
+
+            if (record.clockOut) {
+                clockOutStatus.textContent = `已於 ${record.clockOut} 打卡`;
+                summaryOut.textContent = record.clockOut;
+            } else {
+                clockOutStatus.textContent = '尚未打卡';
+                summaryOut.textContent = '-';
+            }
+        }
+
+        // 設定儲存
+        openConfigBtn.onclick = () => {
+            inputName.value = userName;
+            inputGroup.value = userGroup;
+            scriptUrlInput.value = scriptUrl;
+            configModal.classList.remove('hidden');
+        };
+
+        configCancelBtn.onclick = () => {
+            if (!userName || !userGroup) {
+                showModal('請先設定', '必須設定姓名與組別才能使用打卡功能。', 'warning');
+                return;
+            }
+            configModal.classList.add('hidden');
+        };
+
+        configSaveBtn.onclick = () => {
+            const nameVal = inputName.value.trim();
+            const groupVal = inputGroup.value.trim();
+            if (!nameVal || !groupVal) {
+                showModal('欄位未填', '姓名與組別不能為空白！', 'warning');
+                return;
+            }
+            userName = nameVal;
+            userGroup = groupVal;
+            scriptUrl = scriptUrlInput.value.trim();
+
+            localStorage.setItem('fixed_user_name', userName);
+            localStorage.setItem('fixed_user_group', userGroup);
+            localStorage.setItem('fixed_script_url', scriptUrl);
+
+            configModal.classList.add('hidden');
+            renderUI();
+            showModal('設定完成', '您的身分已鎖定在此裝置！', 'success');
+        };
+
+        // 上班打卡
+        clockInBtn.onclick = () => {
+            if (!userName || !userGroup) {
+                openConfigBtn.onclick();
+                return;
+            }
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            
+            if (!attendanceData[todayKey]) attendanceData[todayKey] = {};
+            attendanceData[todayKey].clockIn = timeStr;
+            
+            saveAndSync('IN', timeStr);
+        };
+
+        // 下班打卡
+        clockOutBtn.onclick = () => {
+            if (!userName || !userGroup) {
+                openConfigBtn.onclick();
+                return;
+            }
+            const now = new Date();
+            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            
+            if (!attendanceData[todayKey]) attendanceData[todayKey] = {};
+            attendanceData[todayKey].clockOut = timeStr;
+            
+            saveAndSync('OUT', timeStr);
+        };
+
+        function saveAndSync(type, timeStr) {
+            playBeep();
+            localStorage.setItem('fixed_attendance_record', JSON.stringify(attendanceData));
+            renderUI();
+            showModal('打卡成功', `${type === 'IN' ? '上班' : '下班'}時間：${timeStr}`, 'success');
+
+            if (scriptUrl) {
+                sendToCloud({
+                    date: todayKey,
+                    name: userName,
+                    group: userGroup,
+                    type: type,
+                    time: timeStr
+                });
+            }
+        }
+
+        async function sendToCloud(payload) {
+            syncStatus.textContent = '同步中...';
+            try {
+                await fetch(scriptUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: 'fixed_clock', data: payload })
+                });
+                syncStatus.textContent = '已同步雲端';
+                syncStatus.style.background = '#d1fae5';
+                syncStatus.style.color = '#047857';
+            } catch (err) {
+                syncStatus.textContent = '同步失敗';
+            }
+        }
+
+        function showModal(title, message, type = 'info') {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modalIconContainer.style.background = type === 'success' ? '#d1fae5' : type === 'warning' ? '#fef3c7' : '#e0e7ff';
+            modalIconContainer.style.color = type === 'success' ? '#059669' : type === 'warning' ? '#d97706' : '#4f46e5';
+            modalIcon.className = type === 'success' ? "fa-solid fa-check" : type === 'warning' ? "fa-solid fa-triangle-exclamation" : "fa-solid fa-info";
+            customModal.classList.remove('hidden');
+        }
+
+        function hideModal() { customModal.classList.add('hidden'); }
+        modalCloseBtn.onclick = hideModal;
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
