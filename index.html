@@ -3,378 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>出發與返回智慧打卡系統</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>簡易出發返回雲端打卡系統</title>
     <style>
-        body { font-family: 'Inter', sans-serif; }
+        body { font-family: sans-serif; background: #f8fafc; color: #1e293b; max-width: 500px; margin: 0 auto; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); margin-bottom: 15px; }
+        input, button { width: 100%; padding: 12px; margin-top: 8px; margin-bottom: 15px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        button { background: #4f46e5; color: white; border: none; font-weight: bold; cursor: pointer; }
+        button:active { opacity: 0.9; }
+        .btn-go { background: #0284c7; }
+        .btn-back { background: #059669; }
+        .flex { display: flex; gap: 10px; }
     </style>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col justify-between">
+<body>
 
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-10 shadow-sm">
-        <div class="max-w-xl mx-auto px-4 py-4 flex items-center justify-between">
-            <div class="flex items-center space-x-3">
-                <div class="bg-indigo-600 text-white p-2.5 rounded-xl shadow-md">
-                    <i class="fa-solid fa-route text-xl"></i>
-                </div>
-                <div>
-                    <h1 class="text-lg font-bold text-slate-900 tracking-tight">出發與返回打卡</h1>
-                    <p class="text-xs text-slate-500">外勤次數與單趟在外時間結算</p>
-                </div>
-            </div>
-            <div>
-                <button id="open-config-btn" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium px-3 py-2 rounded-xl transition flex items-center">
-                    <i class="fa-solid fa-user-gear mr-1.5 text-indigo-600"></i> 設定身分
-                </button>
-            </div>
-        </div>
-    </header>
+    <h2>簡易出發/返回打卡系統</h2>
 
-    <main class="max-w-xl mx-auto px-4 py-8 w-full flex-grow flex flex-col gap-6">
-        
-        <!-- 身分與時鐘卡片 -->
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-center flex flex-col gap-3">
-            <div id="user-profile-badge" class="inline-block bg-indigo-50 text-indigo-700 font-semibold text-sm px-4 py-1 rounded-full border border-indigo-100 mx-auto">
-                尚未設定身分
-            </div>
-            <div>
-                <div id="live-clock" class="text-4xl font-bold text-indigo-600 font-mono tracking-wider">00:00:00</div>
-                <div id="live-date" class="text-sm text-slate-400 mt-1">YYYY-MM-DD</div>
-            </div>
-        </div>
+    <!-- 身分設定卡片 -->
+    <div class="card">
+        <h3>1. 基本資料</h3>
+        <label>姓名：</label>
+        <input type="text" id="input-name" placeholder="請輸入您的姓名">
+        <label>組別：</label>
+        <input type="text" id="input-group" placeholder="請輸入組別">
+        <button onclick="saveProfile()">儲存身分</button>
+    </div>
 
-        <!-- 「出發」與「返回」雙核心按鈕區 -->
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col gap-4">
-            <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wider">立即打卡動作</h2>
-            
-            <div class="grid grid-cols-2 gap-4">
-                <button id="btn-depart" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center gap-2 transition transform active:scale-95 group">
-                    <div class="bg-white/20 p-3 rounded-xl group-hover:scale-110 transition">
-                        <i class="fa-solid fa-plane-departure text-2xl"></i>
-                    </div>
-                    <span class="text-xl tracking-wide">出發</span>
-                    <span class="text-xs font-normal opacity-85">點擊記錄出發時間</span>
-                </button>
-
-                <button id="btn-return" class="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold p-6 rounded-2xl shadow-lg flex flex-col items-center justify-center gap-2 transition transform active:scale-95 group">
-                    <div class="bg-white/20 p-3 rounded-xl group-hover:scale-110 transition">
-                        <i class="fa-solid fa-plane-arrival text-2xl"></i>
-                    </div>
-                    <span class="text-xl tracking-wide">返回</span>
-                    <span class="text-xs font-normal opacity-85">點擊記錄返回時間</span>
-                </button>
-            </div>
-        </div>
-
-        <!-- 記錄與單趟時間結算顯示區 -->
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col gap-4">
-            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                <h2 class="text-sm font-bold text-slate-800 flex items-center">
-                    <i class="fa-solid fa-clock-rotate-left text-indigo-500 mr-2"></i> 今日外勤次數與在外時間結算
-                </h2>
-                <button id="clear-records-btn" class="text-xs text-red-600 font-semibold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition">
-                    <i class="fa-solid fa-trash-can mr-1"></i> 清空今日記錄
-                </button>
-            </div>
-            
-            <div id="timeline-container" class="flex flex-col gap-3 text-sm">
-                <p class="text-slate-400 text-center py-6">今日尚未有任何出發或返回紀錄</p>
-            </div>
-        </div>
-    </main>
-
-    <!-- 身分設定 Modal -->
-    <div id="config-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl flex flex-col gap-4">
-            <h3 class="font-bold text-lg text-slate-900">設定您的身分</h3>
-            <p class="text-xs text-slate-500">請輸入您的姓名與所屬組別，系統將記錄於打卡清單中。</p>
-            
-            <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">姓名</label>
-                <input type="text" id="input-name" placeholder="例如：王小明" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-
-            <div>
-                <label class="block text-xs font-medium text-slate-600 mb-1">組別 / 單位</label>
-                <input type="text" id="input-group" placeholder="例如：外勤公關組" class="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
-            </div>
-
-            <div class="flex gap-2 mt-2">
-                <button id="config-save-btn" class="flex-1 bg-indigo-600 hover:bg-indigo-700 text-white p-3 rounded-xl text-sm font-semibold transition">儲存設定</button>
-            </div>
+    <!-- 打卡動作卡片 -->
+    <div class="card">
+        <h3>2. 外勤打卡</h3>
+        <p id="profile-display" style="color: #64748b; font-size: 14px;">目前身分：尚未設定</p>
+        <div class="flex">
+            <button class="btn-go" onclick="doCheckIn('出發')">🚀 出發</button>
+            <button class="btn-back" onclick="doCheckIn('返回')">🏠 返回</button>
         </div>
     </div>
 
-    <!-- 一般通知對話框 Modal -->
-    <div id="custom-modal" class="hidden fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl flex flex-col gap-3">
-            <h3 id="modal-title" class="font-bold text-slate-900">提示</h3>
-            <p id="modal-message" class="text-sm text-slate-600"></p>
-            <div class="flex justify-end mt-2">
-                <button id="modal-close-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition">確定</button>
-            </div>
-        </div>
+    <!-- 紀錄顯示 -->
+    <div class="card">
+        <h3>3. 今日操作紀錄</h3>
+        <div id="log-container" style="font-size: 14px; color: #475569;">尚無紀錄</div>
     </div>
 
     <script>
-        const liveClockEl = document.getElementById('live-clock');
-        const liveDateEl = document.getElementById('live-date');
-        const userProfileBadge = document.getElementById('user-profile-badge');
-        const timelineContainer = document.getElementById('timeline-container');
+        // 填入您的 Google Apps Script 部署網址
+        const GOOGLE_SCRIPT_URL = "YOUR_GOOGLE_APPS_SCRIPT_URL";
 
-        const btnDepart = document.getElementById('btn-depart');
-        const btnReturn = document.getElementById('btn-return');
-        const clearRecordsBtn = document.getElementById('clear-records-btn');
-
-        const openConfigBtn = document.getElementById('open-config-btn');
-        const configModal = document.getElementById('config-modal');
-        const inputName = document.getElementById('input-name');
-        const inputGroup = document.getElementById('input-group');
-        const configSaveBtn = document.getElementById('config-save-btn');
-
-        const customModal = document.getElementById('custom-modal');
-        const modalMessage = document.getElementById('modal-message');
-        const modalTitle = document.getElementById('modal-title');
-        const modalCloseBtn = document.getElementById('modal-close-btn');
-
-        let userName = localStorage.getItem('depart_return_name') || '';
-        let userGroup = localStorage.getItem('depart_return_group') || '';
-
-        let todayKey = new Date().toISOString().slice(0, 10);
-        let allRecords = JSON.parse(localStorage.getItem('depart_return_records') || '{}');
-
-        let audioCtx = null;
-        document.addEventListener('click', () => {
-            try {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-            } catch (e) {}
-        }, { once: true });
-
-        function playBeep() {
-            try {
-                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                if (audioCtx.state === 'suspended') audioCtx.resume();
-                const osc = audioCtx.createOscillator();
-                const gain = audioCtx.createGain();
-                osc.connect(gain);
-                gain.connect(audioCtx.destination);
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime);
-                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
-                gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
-                osc.start();
-                osc.stop(audioCtx.currentTime + 0.35);
-            } catch (e) {}
-        }
-
-        function initApp() {
-            updateClock();
-            setInterval(updateClock, 1000);
-            renderUI();
-
-            if (!userName || !userGroup) {
-                configModal.classList.remove('hidden');
+        let userName = localStorage.getItem('s_name') || '';
+        let userGroup = localStorage.getItem('s_group') || '';
+        
+        window.onload = () => {
+            if(userName && userGroup) {
+                document.getElementById('input-name').value = userName;
+                document.getElementById('input-group').value = userGroup;
+                document.getElementById('profile-display').textContent = `目前身分：${userGroup} - ${userName}`;
             }
-        }
+            loadLogs();
+        };
 
-        function updateClock() {
-            const now = new Date();
-            liveClockEl.textContent = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-            liveDateEl.textContent = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-            
-            const currentDateStr = now.toISOString().slice(0, 10);
-            if (currentDateStr !== todayKey) {
-                todayKey = currentDateStr;
-                renderUI();
-            }
-        }
-
-        function renderUI() {
-            if (userName && userGroup) {
-                userProfileBadge.textContent = `組別：${userGroup} | 姓名：${userName}`;
-            } else {
-                userProfileBadge.textContent = '尚未設定身分';
-            }
-
-            const todayList = allRecords[todayKey] || [];
-            if (todayList.length === 0) {
-                timelineContainer.innerHTML = '<p class="text-slate-400 text-center py-6">今日尚未有任何出發或返回紀錄</p>';
+        function saveProfile() {
+            userName = document.getElementById('input-name').value.trim();
+            userGroup = document.getElementById('input-group').value.trim();
+            if(!userName || !userGroup) {
+                alert('請填寫姓名與組別！');
                 return;
             }
-
-            // 將打卡紀錄組合成「次數卡片」（以 一次出發 + 一次返回 為一組）
-            let html = '';
-            let tripIndex = 1;
-            let i = 0;
-
-            while (i < todayList.length) {
-                const current = todayList[i];
-                
-                if (current.type === 'depart') {
-                    // 尋找對應的下一個返回
-                    let nextReturn = null;
-                    let returnIdx = -1;
-                    for (let j = i + 1; j < todayList.length; j++) {
-                        if (todayList[j].type === 'return') {
-                            nextReturn = todayList[j];
-                            returnIdx = j;
-                            break;
-                        }
-                    }
-
-                    if (nextReturn) {
-                        // 已經有配對的返回：計算出發到返回的間隔時間
-                        const startMs = new Date(`${todayKey}T${current.time}`).getTime();
-                        const endMs = new Date(`${todayKey}T${nextReturn.time}`).getTime();
-                        const diffMs = endMs - startMs;
-                        let durationStr = '計算中';
-                        if (diffMs > 0) {
-                            const totalMins = Math.floor(diffMs / 60000);
-                            const hrs = Math.floor(totalMins / 60);
-                            const mins = totalMins % 60;
-                            durationStr = `${hrs > 0 ? hrs + '小時 ' : ''}${mins}分鐘`;
-                        }
-
-                        html += `
-                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 transition">
-                                <div class="flex items-center justify-between">
-                                    <span class="font-bold text-slate-800 text-sm flex items-center">
-                                        <i class="fa-solid fa-route text-indigo-600 mr-2"></i> 第 ${tripIndex} 次外勤行程
-                                    </span>
-                                    <span class="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2.5 py-1 rounded-lg">
-                                        在外時長：${durationStr}
-                                    </span>
-                                </div>
-                                <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-1">
-                                    <div class="bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between">
-                                        <span class="text-blue-600 font-bold"><i class="fa-solid fa-plane-departure mr-1"></i> 出發</span>
-                                        <span class="font-mono">${current.time}</span>
-                                    </div>
-                                    <div class="bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between">
-                                        <span class="text-emerald-600 font-bold"><i class="fa-solid fa-plane-arrival mr-1"></i> 返回</span>
-                                        <span class="font-mono">${nextReturn.time}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                        tripIndex++;
-                        i = returnIdx + 1; // 跳過已配對的項目
-                    } else {
-                        // 只有出發，還沒返回
-                        html += `
-                            <div class="bg-amber-50/60 p-4 rounded-xl border border-amber-200 flex flex-col gap-2">
-                                <div class="flex items-center justify-between">
-                                    <span class="font-bold text-amber-900 text-sm flex items-center">
-                                        <i class="fa-solid fa-spinner fa-spin text-amber-600 mr-2"></i> 第 ${tripIndex} 次外勤行程（進行中）
-                                    </span>
-                                    <span class="text-xs bg-amber-100 text-amber-800 font-semibold px-2.5 py-1 rounded-lg">
-                                        尚未返回
-                                    </span>
-                                </div>
-                                <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-1">
-                                    <div class="bg-white p-2 rounded-lg border border-amber-200 flex items-center justify-between">
-                                        <span class="text-blue-600 font-bold"><i class="fa-solid fa-plane-departure mr-1"></i> 出發</span>
-                                        <span class="font-mono">${current.time}</span>
-                                    </div>
-                                    <div class="bg-white p-2 rounded-lg border border-dashed border-amber-300 flex items-center justify-center text-amber-500">
-                                        等待返回打卡...
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                        tripIndex++;
-                        i++;
-                    }
-                } else {
-                    // 單獨出現的返回（沒有對應的出發，可能是直接點返回）
-                    html += `
-                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
-                            <div class="flex items-center space-x-2">
-                                <i class="fa-solid fa-plane-arrival text-emerald-600"></i>
-                                <span class="font-bold text-slate-800">單獨返回紀錄</span>
-                            </div>
-                            <span class="font-mono font-bold text-indigo-600 text-sm">${current.time}</span>
-                        </div>
-                    `;
-                    i++;
-                }
-            }
-
-            timelineContainer.innerHTML = html;
+            localStorage.setItem('s_name', userName);
+            localStorage.setItem('s_group', userGroup);
+            document.getElementById('profile-display').textContent = `目前身分：${userGroup} - ${userName}`;
+            alert('身分儲存成功！');
         }
 
-        function handlePunch(type, name) {
-            if (!userName || !userGroup) {
-                configModal.classList.remove('hidden');
+        function doCheckIn(actionType) {
+            if(!userName || !userGroup) {
+                alert('請先在上方設定並儲存您的姓名與組別！');
                 return;
             }
 
             const now = new Date();
-            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-            
-            if (!allRecords[todayKey]) allRecords[todayKey] = [];
-            allRecords[todayKey].push({ type: type, time: timeStr });
+            const timeStr = now.toTimeString().split(' ')[0]; // 格式: HH:MM:SS
+            const dateStr = now.toISOString().slice(0, 10);    // 格式: YYYY-MM-DD
 
-            playBeep();
-            localStorage.setItem('depart_return_records', JSON.stringify(allRecords));
-            renderUI();
-            showModal('打卡成功', `已成功記錄【${name}】，時間：${timeStr}`);
+            // 1. 顯示在畫面上
+            const logContainer = document.getElementById('log-container');
+            logContainer.innerHTML = `<b style="color: #0f172a;">[${timeStr}] ${userName} (${userGroup}) 做了【${actionType}】動作</b><br>` + logContainer.innerHTML;
+
+            // 2. 傳送到 Google 試算表
+            if (GOOGLE_SCRIPT_URL !== "YOUR_GOOGLE_APPS_SCRIPT_URL") {
+                const payload = {
+                    name: userName,
+                    group: userGroup,
+                    action: actionType,
+                    time: timeStr,
+                    date: dateStr
+                };
+
+                fetch(GOOGLE_SCRIPT_URL, {
+                    method: "POST",
+                    mode: "no-cors",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(payload)
+                }).then(() => {
+                    console.log("已同步至雲端");
+                }).catch(err => {
+                    console.error("同步失敗", err);
+                });
+            }
+
+            alert(`打卡成功：${actionType} (${timeStr})`);
         }
 
-        btnDepart.onclick = () => handlePunch('depart', '出發');
-        btnReturn.onclick = () => handlePunch('return', '返回');
-
-        clearRecordsBtn.onclick = () => {
-            if (allRecords[todayKey] && allRecords[todayKey].length > 0) {
-                if (confirm('確定要清空今日的所有打卡記錄嗎？')) {
-                    delete allRecords[todayKey];
-                    localStorage.setItem('depart_return_records', JSON.stringify(allRecords));
-                    renderUI();
-                }
-            } else {
-                showModal('提示', '今日目前沒有任何打卡記錄可供清空。');
-            }
-        };
-
-        openConfigBtn.onclick = () => {
-            inputName.value = userName;
-            inputGroup.value = userGroup;
-            configModal.classList.remove('hidden');
-        };
-
-        configSaveBtn.onclick = () => {
-            if (!inputName.value.trim() || !inputGroup.value.trim()) {
-                showModal('提示', '請填寫完整的姓名與組別！');
-                return;
-            }
-            userName = inputName.value.trim();
-            userGroup = inputGroup.value.trim();
-
-            localStorage.setItem('depart_return_name', userName);
-            localStorage.setItem('depart_return_group', userGroup);
-
-            configModal.classList.add('hidden');
-            renderUI();
-            showModal('成功', '身分資料已儲存！');
-        };
-
-        function showModal(title, msg) {
-            modalTitle.textContent = title;
-            modalMessage.textContent = msg;
-            customModal.classList.remove('hidden');
+        function loadLogs() {
+            // 簡易初始化
         }
-        modalCloseBtn.onclick = () => customModal.classList.add('hidden');
-
-        window.onload = initApp;
     </script>
 </body>
 </html>
-```
-eof
-
-### 修改重點：
-1. **出發與返回配對計算**：現在系統會將「**出發**」與隨後的「**返回**」配對成同一趟外勤行程，並結算「**在外時長**」（例如：出發 10:00、返回 11:30，在外時長即為 1 小時 30 分鐘）。
-2. **行程狀態視覺化**：若您剛點了「出發」還沒點「返回」，畫面會顯示為黃色醒目的「進行中 / 等待返回打卡」，非常直覺！
