@@ -12,8 +12,10 @@
         button:active { opacity: 0.9; }
         .btn-go { background: #0284c7; }
         .btn-back { background: #059669; }
+        .btn-delete { background: #ef4444; font-size: 14px; padding: 8px; margin-top: 10px; }
         .flex { display: flex; gap: 10px; }
         .stat-box { background: #e0e7ff; color: #3730a3; padding: 12px; border-radius: 8px; font-weight: bold; text-align: center; margin-bottom: 10px; }
+        .log-item { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #f1f5f9; }
     </style>
 </head>
 <body>
@@ -22,7 +24,7 @@
 
     <!-- 身分設定卡片 -->
     <div class="card">
-        <h3>1. 個人身分設定（手機端請各自設定）</h3>
+        <h3>1. 個人身分設定</h3>
         <label>姓名：</label>
         <input type="text" id="input-name" placeholder="請輸入您的姓名">
         <label>組別：</label>
@@ -45,6 +47,7 @@
         <h3>3. 今日外勤結算與紀錄</h3>
         <div class="stat-box" id="total-duration-display">本日累計外勤時間：0 小時 0 分鐘</div>
         <div id="log-container" style="font-size: 14px; color: #475569;">尚無打卡紀錄</div>
+        <button class="btn-delete" onclick="deleteLastLog()">刪除最後一筆紀錄</button>
     </div>
 
     <script>
@@ -88,13 +91,12 @@
             const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
             const dateStr = now.toISOString().slice(0, 10);
 
-            // 紀錄本地資料以便計算間隔
             myLogs.push({ action: actionType, time: timeStr });
             localStorage.setItem('s_logs_' + dateStr, JSON.stringify(myLogs));
 
             renderUI();
 
-            // 異步傳送到 Google 試算表（每個人用自己手機都會發送請求到同一個雲端表單）
+            // 異步傳送到 Google 試算表
             if (GOOGLE_SCRIPT_URL !== "YOUR_GOOGLE_APPS_SCRIPT_URL") {
                 const payload = {
                     name: userName,
@@ -119,6 +121,20 @@
             alert(`打卡成功：${actionType} (${timeStr}) 已同步至雲端`);
         }
 
+        // 刪除最後一筆紀錄功能
+        function deleteLastLog() {
+            if (myLogs.length === 0) {
+                alert('目前沒有可以刪除的紀錄！');
+                return;
+            }
+            if (confirm('確定要刪除最後一筆打卡紀錄嗎？')) {
+                myLogs.pop();
+                localStorage.setItem('s_logs_' + todayKey, JSON.stringify(myLogs));
+                renderUI();
+                alert('已成功刪除最後一筆紀錄！');
+            }
+        }
+
         function renderUI() {
             const logContainer = document.getElementById('log-container');
             const totalDurationDisplay = document.getElementById('total-duration-display');
@@ -134,7 +150,7 @@
             let lastGoTime = null;
 
             myLogs.forEach((log) => {
-                html += `<div>• [${log.time}] <b>${log.action}</b></div>`;
+                html += `<div class="log-item"><span>• [${log.time}] <b>${log.action}</b></span></div>`;
 
                 if (log.action === '出發') {
                     lastGoTime = log.time;
