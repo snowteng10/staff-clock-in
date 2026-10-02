@@ -56,7 +56,13 @@
 
         let userName = localStorage.getItem('s_name') || '';
         let userGroup = localStorage.getItem('s_group') || '';
-        let todayKey = new Date().toISOString().slice(0, 10);
+        
+        // 取得台灣當日日期 Key (YYYY-MM-DD)
+        const getTaiwanDateStr = (date = new Date()) => {
+            return date.toLocaleDateString('sv', { timeZone: 'Asia/Taipei' });
+        };
+
+        let todayKey = getTaiwanDateStr();
         let myLogs = JSON.parse(localStorage.getItem('s_logs_' + todayKey) || '[]');
 
         window.onload = () => {
@@ -88,8 +94,16 @@
             }
 
             const now = new Date();
-            const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-            const dateStr = now.toISOString().slice(0, 10);
+            
+            // 強制使用台灣時區 (Asia/Taipei) 取得精確的 時:分:秒 與 日期
+            const timeStr = now.toLocaleTimeString('zh-TW', { 
+                timeZone: 'Asia/Taipei', 
+                hour12: false,
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+            const dateStr = getTaiwanDateStr(now);
 
             myLogs.push({ action: actionType, time: timeStr });
             localStorage.setItem('s_logs_' + dateStr, JSON.stringify(myLogs));
