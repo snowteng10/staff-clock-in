@@ -20,7 +20,7 @@
                 </div>
                 <div>
                     <h1 class="text-lg font-bold text-slate-900 tracking-tight">出發與返回打卡</h1>
-                    <p class="text-xs text-slate-500">外勤次數與單趟在外時間結算</p>
+                    <p class="text-xs text-slate-500">外勤累積與單趟時數結算</p>
                 </div>
             </div>
             <div>
@@ -33,14 +33,30 @@
 
     <main class="max-w-xl mx-auto px-4 py-8 w-full flex-grow flex flex-col gap-6">
         
-        <!-- 身分與時鐘卡片 -->
-        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-center flex flex-col gap-3">
+        <!-- 身分、時鐘與今日總累積時間卡片 -->
+        <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 text-center flex flex-col gap-4">
             <div id="user-profile-badge" class="inline-block bg-indigo-50 text-indigo-700 font-semibold text-sm px-4 py-1 rounded-full border border-indigo-100 mx-auto">
                 尚未設定身分
             </div>
             <div>
                 <div id="live-clock" class="text-4xl font-bold text-indigo-600 font-mono tracking-wider">00:00:00</div>
                 <div id="live-date" class="text-sm text-slate-400 mt-1">YYYY-MM-DD</div>
+            </div>
+
+            <!-- 燈箱：本日總累積在外時間 -->
+            <div class="bg-gradient-to-r from-indigo-50 to-blue-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="bg-indigo-600 text-white p-2 rounded-lg">
+                        <i class="fa-solid fa-hourglass-half"></i>
+                    </div>
+                    <div class="text-left">
+                        <div class="text-xs text-slate-500 font-medium">本日總累計外勤時間</div>
+                        <div id="total-accumulated-time" class="text-lg font-bold text-indigo-900 font-mono">0 小時 0 分鐘</div>
+                    </div>
+                </div>
+                <div id="active-status-badge" class="text-xs bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full font-medium">
+                    目前在內
+                </div>
             </div>
         </div>
 
@@ -71,7 +87,7 @@
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col gap-4">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h2 class="text-sm font-bold text-slate-800 flex items-center">
-                    <i class="fa-solid fa-clock-rotate-left text-indigo-500 mr-2"></i> 今日外勤次數與在外時間結算
+                    <i class="fa-solid fa-clock-rotate-left text-indigo-500 mr-2"></i> 今日外勤次數與單趟時間結算
                 </h2>
                 <button id="clear-records-btn" class="text-xs text-red-600 font-semibold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition">
                     <i class="fa-solid fa-trash-can mr-1"></i> 清空今日記錄
@@ -122,6 +138,8 @@
         const liveDateEl = document.getElementById('live-date');
         const userProfileBadge = document.getElementById('user-profile-badge');
         const timelineContainer = document.getElementById('timeline-container');
+        const totalAccumulatedTimeEl = document.getElementById('total-accumulated-time');
+        const activeStatusBadge = document.getElementById('active-status-badge');
 
         const btnDepart = document.getElementById('btn-depart');
         const btnReturn = document.getElementById('btn-return');
@@ -202,19 +220,22 @@
             const todayList = allRecords[todayKey] || [];
             if (todayList.length === 0) {
                 timelineContainer.innerHTML = '<p class="text-slate-400 text-center py-6">今日尚未有任何出發或返回紀錄</p>';
+                totalAccumulatedTimeEl.textContent = '0 小時 0 分鐘';
+                activeStatusBadge.textContent = '目前在內';
+                activeStatusBadge.className = 'text-xs bg-slate-200 text-slate-600 px-2.5 py-1 rounded-full font-medium';
                 return;
             }
 
-            // 將打卡紀錄組合成「次數卡片」（以 一次出發 + 一次返回 為一組）
             let html = '';
             let tripIndex = 1;
             let i = 0;
+            let totalMinsAccumulated = 0;
+            let isCurrentlyOut = false;
 
             while (i < todayList.length) {
                 const current = todayList[i];
                 
                 if (current.type === 'depart') {
-                    // 尋找對應的下一個返回
                     let nextReturn = null;
                     let returnIdx = -1;
                     for (let j = i + 1; j < todayList.length; j++) {
@@ -226,13 +247,13 @@
                     }
 
                     if (nextReturn) {
-                        // 已經有配對的返回：計算出發到返回的間隔時間
                         const startMs = new Date(`${todayKey}T${current.time}`).getTime();
                         const endMs = new Date(`${todayKey}T${nextReturn.time}`).getTime();
                         const diffMs = endMs - startMs;
                         let durationStr = '計算中';
                         if (diffMs > 0) {
                             const totalMins = Math.floor(diffMs / 60000);
+                            totalMinsAccumulated += totalMins;
                             const hrs = Math.floor(totalMins / 60);
                             const mins = totalMins % 60;
                             durationStr = `${hrs > 0 ? hrs + '小時 ' : ''}${mins}分鐘`;
@@ -245,7 +266,7 @@
                                         <i class="fa-solid fa-route text-indigo-600 mr-2"></i> 第 ${tripIndex} 次外勤行程
                                     </span>
                                     <span class="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2.5 py-1 rounded-lg">
-                                        在外時長：${durationStr}
+                                        單趟時長：${durationStr}
                                     </span>
                                 </div>
                                 <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-1">
@@ -261,9 +282,9 @@
                             </div>
                         `;
                         tripIndex++;
-                        i = returnIdx + 1; // 跳過已配對的項目
+                        i = returnIdx + 1;
                     } else {
-                        // 只有出發，還沒返回
+                        isCurrentlyOut = true;
                         html += `
                             <div class="bg-amber-50/60 p-4 rounded-xl border border-amber-200 flex flex-col gap-2">
                                 <div class="flex items-center justify-between">
@@ -289,7 +310,6 @@
                         i++;
                     }
                 } else {
-                    // 單獨出現的返回（沒有對應的出發，可能是直接點返回）
                     html += `
                         <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
                             <div class="flex items-center space-x-2">
@@ -301,6 +321,19 @@
                     `;
                     i++;
                 }
+            }
+
+            // 更新總累積時間顯示
+            const totalHours = Math.floor(totalMinsAccumulated / 60);
+            const totalMins = totalMinsAccumulated % 60;
+            totalAccumulatedTimeEl.textContent = `${totalHours} 小時 ${totalMins} 分鐘`;
+
+            if (isCurrentlyOut) {
+                activeStatusBadge.textContent = '外勤進行中';
+                activeStatusBadge.className = 'text-xs bg-amber-100 text-amber-800 px-2.5 py-1 rounded-full font-medium';
+            } else {
+                activeStatusBadge.textContent = '目前在內';
+                activeStatusBadge.className = 'text-xs bg-emerald-100 text-emerald-800 px-2.5 py-1 rounded-full font-medium';
             }
 
             timelineContainer.innerHTML = html;
@@ -372,9 +405,3 @@
     </script>
 </body>
 </html>
-```
-eof
-
-### 修改重點：
-1. **出發與返回配對計算**：現在系統會將「**出發**」與隨後的「**返回**」配對成同一趟外勤行程，並結算「**在外時長**」（例如：出發 10:00、返回 11:30，在外時長即為 1 小時 30 分鐘）。
-2. **行程狀態視覺化**：若您剛點了「出發」還沒點「返回」，畫面會顯示為黃色醒目的「進行中 / 等待返回打卡」，非常直覺！
