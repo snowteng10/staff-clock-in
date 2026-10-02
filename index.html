@@ -20,7 +20,7 @@
                 </div>
                 <div>
                     <h1 class="text-lg font-bold text-slate-900 tracking-tight">出發與返回打卡</h1>
-                    <p class="text-xs text-slate-500">彈性多筆記錄與相鄰間隔計算</p>
+                    <p class="text-xs text-slate-500">外勤次數與單趟在外時間結算</p>
                 </div>
             </div>
             <div>
@@ -67,18 +67,18 @@
             </div>
         </div>
 
-        <!-- 記錄與間隔時間計算顯示區 -->
+        <!-- 記錄與單趟時間結算顯示區 -->
         <div class="bg-white rounded-2xl p-6 shadow-sm border border-slate-200 flex flex-col gap-4">
             <div class="flex items-center justify-between border-b border-slate-100 pb-3">
                 <h2 class="text-sm font-bold text-slate-800 flex items-center">
-                    <i class="fa-solid fa-clock-rotate-left text-indigo-500 mr-2"></i> 今日打卡時序與相鄰間隔
+                    <i class="fa-solid fa-clock-rotate-left text-indigo-500 mr-2"></i> 今日外勤次數與在外時間結算
                 </h2>
                 <button id="clear-records-btn" class="text-xs text-red-600 font-semibold bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-lg transition">
                     <i class="fa-solid fa-trash-can mr-1"></i> 清空今日記錄
                 </button>
             </div>
             
-            <div id="timeline-container" class="flex flex-col gap-2.5 text-sm">
+            <div id="timeline-container" class="flex flex-col gap-3 text-sm">
                 <p class="text-slate-400 text-center py-6">今日尚未有任何出發或返回紀錄</p>
             </div>
         </div>
@@ -142,10 +142,8 @@
         let userGroup = localStorage.getItem('depart_return_group') || '';
 
         let todayKey = new Date().toISOString().slice(0, 10);
-        // 儲存格式: { "YYYY-MM-DD": [ {type: 'depart'/'return', time: 'HH:MM:SS'}, ... ] }
         let allRecords = JSON.parse(localStorage.getItem('depart_return_records') || '{}');
 
-        // Web Audio API 提示音
         let audioCtx = null;
         document.addEventListener('click', () => {
             try {
@@ -163,8 +161,8 @@
                 osc.connect(gain);
                 gain.connect(audioCtx.destination);
                 osc.type = 'sine';
-                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime); // E5
-                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1); // A5
+                osc.frequency.setValueAtTime(659.25, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
                 gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
                 osc.start();
@@ -207,51 +205,103 @@
                 return;
             }
 
+            // 將打卡紀錄組合成「次數卡片」（以 一次出發 + 一次返回 為一組）
             let html = '';
-            let lastTimestamp = null;
+            let tripIndex = 1;
+            let i = 0;
 
-            todayList.forEach((item, index) => {
-                let intervalText = '';
-                const currentTimestamp = new Date(`${todayKey}T${item.time}`).getTime();
-
-                if (lastTimestamp !== null) {
-                    const diffMs = currentTimestamp - lastTimestamp;
-                    if (diffMs > 0) {
-                        const totalMins = Math.floor(diffMs / 60000);
-                        const hrs = Math.floor(totalMins / 60);
-                        const mins = totalMins % 60;
-                        intervalText = `<span class="text-xs bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-lg ml-2 font-medium">距前次間隔: ${hrs > 0 ? hrs + '小時 ' : ''}${mins}分鐘</span>`;
+            while (i < todayList.length) {
+                const current = todayList[i];
+                
+                if (current.type === 'depart') {
+                    // 尋找對應的下一個返回
+                    let nextReturn = null;
+                    let returnIdx = -1;
+                    for (let j = i + 1; j < todayList.length; j++) {
+                        if (todayList[j].type === 'return') {
+                            nextReturn = todayList[j];
+                            returnIdx = j;
+                            break;
+                        }
                     }
-                }
-                lastTimestamp = currentTimestamp;
 
-                const isDepart = item.type === 'depart';
-                const badgeColor = isDepart ? 'bg-blue-500' : 'bg-emerald-500';
-                const iconClass = isDepart ? 'fa-plane-departure text-blue-600' : 'fa-plane-arrival text-emerald-600';
-                const labelName = isDepart ? '出發' : '返回';
+                    if (nextReturn) {
+                        // 已經有配對的返回：計算出發到返回的間隔時間
+                        const startMs = new Date(`${todayKey}T${current.time}`).getTime();
+                        const endMs = new Date(`${todayKey}T${nextReturn.time}`).getTime();
+                        const diffMs = endMs - startMs;
+                        let durationStr = '計算中';
+                        if (diffMs > 0) {
+                            const totalMins = Math.floor(diffMs / 60000);
+                            const hrs = Math.floor(totalMins / 60);
+                            const mins = totalMins % 60;
+                            durationStr = `${hrs > 0 ? hrs + '小時 ' : ''}${mins}分鐘`;
+                        }
 
-                html += `
-                    <div class="flex items-center justify-between bg-slate-50 p-3.5 rounded-xl border border-slate-200 transition hover:bg-slate-100/80">
-                        <div class="flex items-center space-x-3 overflow-hidden">
-                            <div class="w-8 h-8 rounded-lg flex items-center justify-center bg-white shadow-sm border border-slate-200 flex-shrink-0">
-                                <i class="fa-solid ${iconClass}"></i>
-                            </div>
-                            <div class="truncate">
-                                <div class="flex items-center flex-wrap gap-1">
-                                    <span class="font-bold text-slate-800">${index + 1}. ${labelName}</span>
-                                    ${intervalText}
+                        html += `
+                            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 flex flex-col gap-2 transition">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-slate-800 text-sm flex items-center">
+                                        <i class="fa-solid fa-route text-indigo-600 mr-2"></i> 第 ${tripIndex} 次外勤行程
+                                    </span>
+                                    <span class="text-xs bg-indigo-100 text-indigo-700 font-semibold px-2.5 py-1 rounded-lg">
+                                        在外時長：${durationStr}
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-1">
+                                    <div class="bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between">
+                                        <span class="text-blue-600 font-bold"><i class="fa-solid fa-plane-departure mr-1"></i> 出發</span>
+                                        <span class="font-mono">${current.time}</span>
+                                    </div>
+                                    <div class="bg-white p-2 rounded-lg border border-slate-200 flex items-center justify-between">
+                                        <span class="text-emerald-600 font-bold"><i class="fa-solid fa-plane-arrival mr-1"></i> 返回</span>
+                                        <span class="font-mono">${nextReturn.time}</span>
+                                    </div>
                                 </div>
                             </div>
+                        `;
+                        tripIndex++;
+                        i = returnIdx + 1; // 跳過已配對的項目
+                    } else {
+                        // 只有出發，還沒返回
+                        html += `
+                            <div class="bg-amber-50/60 p-4 rounded-xl border border-amber-200 flex flex-col gap-2">
+                                <div class="flex items-center justify-between">
+                                    <span class="font-bold text-amber-900 text-sm flex items-center">
+                                        <i class="fa-solid fa-spinner fa-spin text-amber-600 mr-2"></i> 第 ${tripIndex} 次外勤行程（進行中）
+                                    </span>
+                                    <span class="text-xs bg-amber-100 text-amber-800 font-semibold px-2.5 py-1 rounded-lg">
+                                        尚未返回
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 pt-1">
+                                    <div class="bg-white p-2 rounded-lg border border-amber-200 flex items-center justify-between">
+                                        <span class="text-blue-600 font-bold"><i class="fa-solid fa-plane-departure mr-1"></i> 出發</span>
+                                        <span class="font-mono">${current.time}</span>
+                                    </div>
+                                    <div class="bg-white p-2 rounded-lg border border-dashed border-amber-300 flex items-center justify-center text-amber-500">
+                                        等待返回打卡...
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        tripIndex++;
+                        i++;
+                    }
+                } else {
+                    // 單獨出現的返回（沒有對應的出發，可能是直接點返回）
+                    html += `
+                        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex items-center justify-between text-xs">
+                            <div class="flex items-center space-x-2">
+                                <i class="fa-solid fa-plane-arrival text-emerald-600"></i>
+                                <span class="font-bold text-slate-800">單獨返回紀錄</span>
+                            </div>
+                            <span class="font-mono font-bold text-indigo-600 text-sm">${current.time}</span>
                         </div>
-                        <div class="flex items-center space-x-3 flex-shrink-0">
-                            <span class="font-mono font-bold text-indigo-600 text-base">${item.time}</span>
-                            <button onclick="deleteRecord(${index})" class="text-slate-400 hover:text-red-500 p-1 transition" title="刪除此筆記錄">
-                                <i class="fa-solid fa-xmark"></i>
-                            </button>
-                        </div>
-                    </div>
-                `;
-            });
+                    `;
+                    i++;
+                }
+            }
 
             timelineContainer.innerHTML = html;
         }
@@ -273,14 +323,6 @@
             renderUI();
             showModal('打卡成功', `已成功記錄【${name}】，時間：${timeStr}`);
         }
-
-        window.deleteRecord = function(index) {
-            if (allRecords[todayKey]) {
-                allRecords[todayKey].splice(index, 1);
-                localStorage.setItem('depart_return_records', JSON.stringify(allRecords));
-                renderUI();
-            }
-        };
 
         btnDepart.onclick = () => handlePunch('depart', '出發');
         btnReturn.onclick = () => handlePunch('return', '返回');
@@ -332,3 +374,7 @@
 </html>
 ```
 eof
+
+### 修改重點：
+1. **出發與返回配對計算**：現在系統會將「**出發**」與隨後的「**返回**」配對成同一趟外勤行程，並結算「**在外時長**」（例如：出發 10:00、返回 11:30，在外時長即為 1 小時 30 分鐘）。
+2. **行程狀態視覺化**：若您剛點了「出發」還沒點「返回」，畫面會顯示為黃色醒目的「進行中 / 等待返回打卡」，非常直覺！
