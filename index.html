@@ -50,11 +50,33 @@
             border: 1px solid var(--border-color);
         }
 
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
         .card-title {
             font-size: 15px;
             font-weight: 600;
-            margin-bottom: 12px;
             color: var(--text-main);
+            margin: 0;
+        }
+
+        /* 鎖定切換小按鈕 */
+        .btn-lock {
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-lock:hover {
+            background: #e2e8f0;
         }
 
         .form-group {
@@ -84,62 +106,55 @@
             border-color: var(--primary-color);
         }
 
-        .btn {
-            width: 100%;
-            padding: 11px;
-            font-size: 15px;
-            font-weight: 600;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.2s;
+        /* 鎖定時的唯讀狀態外觀 */
+        .form-control:disabled {
+            background-color: #f8fafc;
+            color: #64748b;
+            border-color: #e2e8f0;
+            cursor: not-allowed;
         }
 
-        .btn-primary {
-            background-color: var(--primary-color);
-            color: white;
-        }
-        .btn-primary:hover {
-            background-color: var(--primary-hover);
-        }
-
+        /* 🚀 超直觀大打卡按鈕 */
         .action-buttons {
             display: flex;
-            gap: 12px;
+            gap: 16px;
         }
 
-        /* 🚀 區分打卡按鈕造型 */
-        .btn-departure {
+        .btn-action {
             flex: 1;
-            background: linear-gradient(135deg, #0284c7, #0369a1);
+            padding: 24px 12px;
+            font-size: 18px;
+            font-weight: 700;
+            border: none;
+            border-radius: 16px;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            transition: all 0.2s;
             color: white;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(2, 132, 199, 0.25);
-            font-size: 16px;
         }
-        .btn-departure:hover {
-            opacity: 0.95;
-            transform: translateY(-1px);
+
+        .btn-action span.icon {
+            font-size: 28px;
+        }
+
+        .btn-departure {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            box-shadow: 0 6px 15px rgba(2, 132, 199, 0.3);
+        }
+        .btn-departure:active {
+            transform: scale(0.97);
         }
 
         .btn-return {
-            flex: 1;
             background: linear-gradient(135deg, #10b981, #059669);
-            color: white;
-            border-radius: 30px; 
-            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.25);
-            font-size: 16px;
+            box-shadow: 0 6px 15px rgba(16, 185, 129, 0.3);
         }
-        .btn-return:hover {
-            opacity: 0.95;
-            transform: translateY(-1px);
-        }
-
-        .status-text {
-            font-size: 12px;
-            color: var(--text-secondary);
-            text-align: center;
-            margin-top: 8px;
+        .btn-return:active {
+            transform: scale(0.97);
         }
 
         .summary-badge {
@@ -163,7 +178,6 @@
             gap: 8px;
         }
 
-        /* 每筆紀錄的卡片化設計，右側帶有刪除按鈕 */
         .history-item {
             display: flex;
             justify-content: space-between;
@@ -178,7 +192,6 @@
             line-height: 1.4;
         }
 
-        /* 單筆刪除圖示按鈕 */
         .btn-delete-icon {
             background: transparent;
             border: none;
@@ -200,33 +213,40 @@
     <div class="container">
         <h2 class="main-title">外勤出發/返回打卡系統</h2>
 
-        <!-- 1. 個人身分設定 -->
+        <!-- 1. 個人身分設定（帶鎖定功能） -->
         <div class="card">
-            <div class="card-title">1. 個人身分設定</div>
+            <div class="card-header">
+                <div class="card-title" id="identityHeaderTitle">1. 身分設定：已鎖定</div>
+                <button id="lockToggleBtn" class="btn-lock" onclick="toggleLock()">🔓 解鎖修改</button>
+            </div>
             <div class="form-group">
                 <label for="staffNameInput">姓名：</label>
-                <input type="text" id="staffNameInput" class="form-control" placeholder="請輸入姓名">
+                <input type="text" id="staffNameInput" class="form-control" placeholder="請輸入姓名" disabled>
             </div>
             <div class="form-group">
                 <label for="unitNameInput">組別：</label>
-                <input type="text" id="unitNameInput" class="form-control" placeholder="例如：CT、MRI、SONO">
+                <input type="text" id="unitNameInput" class="form-control" placeholder="例如：CT、MRI、SONO" disabled>
             </div>
-            <button class="btn btn-primary" onclick="saveIdentity()">儲存身分</button>
-            <div id="identityStatus" class="status-text">目前身分：尚未設定</div>
         </div>
 
-        <!-- 2. 外勤打卡操作 -->
+        <!-- 2. 外勤打卡操作（最直觀大按鈕） -->
         <div class="card">
-            <div class="card-title">2. 外勤打卡操作</div>
+            <div class="card-title" style="margin-bottom: 12px;">2. 打卡操作</div>
             <div class="action-buttons">
-                <button class="btn btn-departure" onclick="clockIn('出發')">🚀 出發</button>
-                <button class="btn btn-return" onclick="clockIn('回程')">🏠 回程</button>
+                <button class="btn-action btn-departure" onclick="clockIn('出發')">
+                    <span class="icon">🚀</span>
+                    <span>出發</span>
+                </button>
+                <button class="btn-action btn-return" onclick="clockIn('回程')">
+                    <span class="icon">🏠</span>
+                    <span>回程</span>
+                </button>
             </div>
         </div>
 
         <!-- 3. 今日外勤結算與紀錄 -->
         <div class="card">
-            <div class="card-title">3. 今日外勤結算與紀錄</div>
+            <div class="card-title" style="margin-bottom: 12px;">3. 今日打卡紀錄</div>
             <div id="totalDurationBadge" class="summary-badge">本日累計外勤時間：0 小時 0 分鐘</div>
             
             <div id="historyContainer" class="history-list">
@@ -237,125 +257,289 @@
 
     <script>
         const scriptUrl = ""; // 請在此填入您的 Google Apps Script 部署網址
-
         let historyData = [];
+        let isLocked = true; // 預設為鎖定狀態
 
         window.onload = function() {
             const savedName = localStorage.getItem('staff_name');
             const savedUnit = localStorage.getItem('unit_name');
             if (savedName) document.getElementById('staffNameInput').value = savedName;
             if (savedUnit) document.getElementById('unitNameInput').value = savedUnit;
-            updateIdentityStatus();
+
+            // 如果本機沒有儲存過身分，自動打開解鎖讓使用者輸入
+            if (!savedName || !savedUnit) {
+                toggleLock();
+            } else {
+                applyLockState(true);
+            }
         };
 
-        function saveIdentity() {
-            const name = document.getElementById('staffNameInput').value.trim();
-            const unit = document.getElementById('unitNameInput').value.trim();
-            if (!name || !unit) {
-                alert('請完整輸入姓名與組別！');
-                return;
-            }
-            localStorage.setItem('staff_name', name);
-            localStorage.setItem('unit_name', unit);
-            updateIdentityStatus();
-            alert('身分儲存成功！');
-        }
+        // 切換鎖定/解鎖身分
+        function toggleLock() {
+            const nameInput = document.getElementById('staffNameInput');
+            const unitInput = document.getElementById('unitNameInput');
+            const lockBtn = document.getElementById('lockToggleBtn');
+            const headerTitle = document.getElementById('identityHeaderTitle');
 
-        function updateIdentityStatus() {
-            const name = localStorage.getItem('staff_name');
-            const unit = localStorage.getItem('unit_name');
-            const statusDiv = document.getElementById('identityStatus');
-            if (name && unit) {
-                statusDiv.innerText = `目前身分：${name} (${unit})`;
+            if (isLocked) {
+                // 解鎖
+                nameInput.disabled = false;
+                unitInput.disabled = false;
+                lockBtn.innerText = "🔒 鎖定身分";
+                headerTitle.innerText = "1. 身分設定：編輯中";
+                isLocked = false;
             } else {
-                statusDiv.innerText = '目前身分：尚未設定';
-            }
-        }
-
-        async function clockIn(type) {
-            const name = localStorage.getItem('staff_name');
-            const unit = localStorage.getItem('unit_name');
-            if (!name || !unit) {
-                alert('請先完成並儲存「個人身分設定」！');
-                return;
-            }
-
-            const now = new Date();
-            const timeStr = now.getFullYear() + '-' + 
-                            String(now.getMonth() + 1).padStart(2, '0') + '-' + 
-                            String(now.getDate()).padStart(2, '0') + ' ' + 
-                            String(now.getHours()).padStart(2, '0') + ':' + 
-                            String(now.getMinutes()).padStart(2, '0') + ':' + 
-                            String(now.getSeconds()).padStart(2, '0');
-
-            if (type === '出發') {
-                const newRecord = { name, unit, startTime: timeStr, endTime: '-', duration: '-', status: '進行中' };
-                historyData.unshift(newRecord);
-                renderHistory();
-                await sendToCloud({ name, unit, type: '出發' });
-            } else if (type === '回程') {
-                const activeRecord = historyData.find(item => item.name === name && item.status === '進行中');
-                if (!activeRecord) {
-                    alert('目前沒有進行中的「出發」紀錄可供回程！');
+                // 鎖定並儲存
+                const name = nameInput.value.trim();
+                const unit = unitInput.value.trim();
+                if (!name || !unit) {
+                    alert('請完整輸入姓名與組別才能鎖定！');
                     return;
                 }
-                const startTime = new Date(activeRecord.startTime.replace(/-/g, "/"));
-                const diffMs = now - startTime;
-                const diffMins = Math.floor(diffMs / 60000);
-                const hours = Math.floor(diffMins / 60);
-                const mins = diffMins % 60;
-
-                activeRecord.endTime = timeStr;
-                activeRecord.duration = (hours > 0 ? hours + "小時 " : "") + mins + "分鐘";
-                activeRecord.status = '已完成';
+                localStorage.setItem('staff_name', name);
+                localStorage.setItem('unit_name', unit);
                 
-                renderHistory();
-                await sendToCloud({ name, unit, type: '回程' });
+                applyLockState(true);
             }
         }
 
-        async function sendToCloud(payload) {
-            if (!scriptUrl) return;
+        function applyLockState(locked) {
+            isLocked = locked;
+            const nameInput = document.getElementById('staffNameInput');
+            const unitInput = document.getElementById('unitNameInput');
+            const lockBtn = document.getElementById('lockToggleBtn');
+            const headerTitle = document.getElementById('identityHeaderTitle');
+
+            nameInput.disabled = true;
+            unitInput.disabled = true;
+            lockBtn.innerText = "🔓 解鎖修改";
+            headerTitle.innerText = `1. 身分設定：${nameInput.value} (${unitInput.value})`;
+        }
+
+        // 播放打卡成功音效 (Web Audio API 產生清脆逼逼聲)
+        function playBeep() {
             try {
-                await fetch(scriptUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify(payload)
-                });
-            } catch (err) {
-                console.error('雲端同步失敗', err);
-            }
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(800, audioCtx.currentTime); // 頻率
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.3);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.這是一個非常實用的優化需求！我們把介面做以下改造，讓它極致簡潔且功能強大：
+
+1. **身分切換與鎖定（解鎖/鎖定按鈕）**：點擊「儲存身分」後自動變為**「🔒 已鎖定」**狀態，輸入框會變成唯讀，畫面上只留一個清爽的按鈕切換鎖定狀態，省去多餘文字。
+2. **打卡音效（Web Audio API）**：不需要額外載入音訊檔案，系統會**直接用程式碼合成清脆的打卡成功提示音**（叮咚聲），點擊「出發」或「回程」時立刻播放！
+3. **最直觀的大型按鈕設計**：將「出發」與「返回」打卡按鈕放大並加上直覺的圖示與特效，讓使用者一目了然、秒速點擊。
+
+請使用以下最新的完整 **HTML** 程式碼：
+
+```html
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>外勤出發/返回打卡系統</title>
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --primary-hover: #4338ca;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
         }
 
-        // 刪除指定的某一筆紀錄
-        function deleteRecord(index) {
-            if (confirm('確定要刪除這筆紀錄嗎？')) {
-                historyData.splice(index, 1);
-                renderHistory();
-            }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
         }
 
-        function renderHistory() {
-            const container = document.getElementById('historyContainer');
-            if (historyData.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 10px;">尚無打卡紀錄</div>';
-                document.getElementById('totalDurationBadge').innerText = '本日累計外勤時間：0 小時 0 分鐘';
-                return;
-            }
-
-            let html = '';
-            historyData.forEach((item, index) => {
-                html += `<div class="history-item">
-                    <div class="history-info">
-                        <strong>${item.name} (${item.unit})</strong><br>
-                        出發: ${item.startTime} | 回程: ${item.endTime}<br>
-                        歷時: ${item.duration} [${item.status}]
-                    </div>
-                    <button class="btn-delete-icon" onclick="deleteRecord(${index})" title="刪除此筆紀錄">🗑️️</button>
-                </div>`;
-            });
-            container.innerHTML = html;
+        .container {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
-    </script>
-</body>
-</html>
+
+        h2.main-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0 0 4px 0;
+            color: var(--text-main);
+        }
+
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05), 0 1px 2px rgba(0, 0, 0, 0.1);
+            border: 1px solid var(--border-color);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--text-main);
+            margin: 0;
+        }
+
+        /* 簡潔的鎖定切換小按鈕 */
+        .btn-lock-toggle {
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-lock-toggle:hover {
+            background: #e2e8f0;
+        }
+
+        .form-group {
+            margin-bottom: 10px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 3px;
+            color: var(--text-secondary);
+        }
+
+        .form-control {
+            width: 100%;
+            padding: 9px 12px;
+            font-size: 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-sizing: border-box;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .form-control:focus {
+            border-color: var(--primary-color);
+        }
+
+        .form-control:disabled {
+            background-color: #f8fafc;
+            color: #64748b;
+            cursor: not-allowed;
+        }
+
+        /* 最直觀的大型打卡按鈕 */
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+        }
+
+        .btn-clock {
+            flex: 1;
+            padding: 18px 12px;
+            font-size: 18px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+
+        .btn-departure {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+        }
+        .btn-departure:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(2, 132, 199, 0.4);
+        }
+
+        .btn-return {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        .btn-return:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+        }
+
+        .btn-clock span.sub-text {
+            font-size: 12px;
+            font-weight: 400;
+            opacity: 0.9;
+        }
+
+        .summary-badge {
+            background-color: #e0e7ff;
+            color: #3730a3;
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
+        .history-list {
+            max-height: 180px;
+            overflow-y: auto;
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            background-color: var(--bg-color);
+            border-radius: 8px;
+            border-left: 3px solid var(--primary-color);
+        }
+
+        .btn-delete-icon {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            font-size: 14px;
+            cursor: pointer;
+            padding: 4px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+        .btn-delete-icon:hover {
+            background-
