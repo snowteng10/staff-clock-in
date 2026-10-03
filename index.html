@@ -13,6 +13,7 @@
             --text-secondary: #64748b;
             --border-color: #e2e8f0;
         }
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background-color: var(--bg-color);
@@ -24,6 +25,7 @@
             align-items: flex-start;
             min-height: 100vh;
         }
+
         .container {
             width: 100%;
             max-width: 480px;
@@ -31,11 +33,13 @@
             flex-direction: column;
             gap: 16px;
         }
+
         h2.main-title {
             font-size: 20px;
             font-weight: 700;
             margin: 0 0 4px 0;
         }
+
         .card {
             background-color: var(--card-bg);
             border-radius: 12px;
@@ -43,17 +47,20 @@
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
             border: 1px solid var(--border-color);
         }
+
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 12px;
         }
+
         .card-title {
             font-size: 15px;
             font-weight: 600;
             margin: 0;
         }
+
         .btn-lock {
             background: #f1f5f9;
             border: 1px solid var(--border-color);
@@ -63,9 +70,11 @@
             border-radius: 6px;
             cursor: pointer;
         }
+
         .form-group {
             margin-bottom: 10px;
         }
+
         .form-group label {
             display: block;
             font-size: 12px;
@@ -73,6 +82,7 @@
             margin-bottom: 3px;
             color: var(--text-secondary);
         }
+
         .form-control {
             width: 100%;
             padding: 9px 12px;
@@ -82,23 +92,64 @@
             box-sizing: border-box;
             outline: none;
         }
+
+        .form-control:disabled {
+            background-color: #f1f5f9;
+            color: #64748b;
+        }
+
         .action-buttons {
             display: flex;
             gap: 12px;
-            margin-top: 12px;
         }
+
         .btn-clock {
             flex: 1;
-            padding: 16px 12px;
-            font-size: 16px;
+            padding: 18px 12px;
+            font-size: 18px;
             font-weight: 700;
             border: none;
             border-radius: 12px;
             cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
             color: white;
+            transition: transform 0.1s;
         }
-        .btn-departure { background: linear-gradient(135deg, #0284c7, #0369a1); }
-        .btn-return { background: linear-gradient(135deg, #10b981, #059669); }
+        .btn-clock:active {
+            transform: scale(0.97);
+        }
+
+        .btn-departure {
+            background: linear-gradient(135deg, #0284c7, #0369a1);
+            box-shadow: 0 4px 12px rgba(2, 132, 199, 0.3);
+        }
+
+        .btn-return {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .sub-text {
+            font-size: 12px;
+            font-weight: 400;
+            opacity: 0.9;
+        }
+
+        .summary-badge {
+            background-color: #e0e7ff;
+            color: #3730a3;
+            padding: 8px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 13px;
+            margin-bottom: 10px;
+        }
+
         .history-list {
             max-height: 180px;
             overflow-y: auto;
@@ -108,88 +159,200 @@
             flex-direction: column;
             gap: 6px;
         }
+
         .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             padding: 8px 10px;
             background-color: var(--bg-color);
             border-radius: 8px;
             border-left: 3px solid var(--primary-color);
+        }
+
+        .btn-delete {
+            background: transparent;
+            border: none;
+            color: #94a3b8;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px;
+        }
+        .btn-delete:hover {
+            color: #ef4444;
         }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h2 class="main-title">外勤任務管理系統</h2>
+        <h2 class="main-title">外勤出發/返回打卡系統</h2>
 
-        <!-- 1. 基本設定 -->
+        <!-- 1. 身分設定 -->
         <div class="card">
             <div class="card-header">
-                <div class="card-title">1. 人員與任務資訊</div>
+                <div class="card-title">1. 身分設定</div>
+                <button id="lockBtn" class="btn-lock" onclick="toggleLock()">🔓 解鎖編輯</button>
             </div>
             <div class="form-group">
-                <label>人員名稱 / 組別：</label>
-                <input type="text" id="nameInput" class="form-control" placeholder="例如：M999 (CT)">
+                <label>姓名：</label>
+                <input type="text" id="nameInput" class="form-control" placeholder="請輸入姓名">
             </div>
             <div class="form-group">
-                <label>接藥人卡號：</label>
-                <input type="text" id="cardNoInput" class="form-control" placeholder="例如：4453">
-            </div>
-            <div class="form-group">
-                <label>備註說明：</label>
-                <input type="text" id="remarkInput" class="form-control" placeholder="選填">
+                <label>組別：</label>
+                <input type="text" id="unitInput" class="form-control" placeholder="例如：CT、MRI、SONO">
             </div>
         </div>
 
         <!-- 2. 打卡按鈕 -->
         <div class="card">
-            <div class="card-title">2. 執行動作</div>
+            <div class="card-title" style="margin-bottom: 12px;">2. 立即打卡</div>
             <div class="action-buttons">
-                <button class="btn-clock btn-departure" onclick="clockIn('出發')">🚀 出 發 (通知)</button>
-                <button class="btn-clock btn-return" onclick="clockIn('回程')">🏠 回 程 (完成)</button>
+                <button class="btn-clock btn-departure" onclick="clockIn('出發')">
+                    🚀 出 發
+                    <span class="sub-text">點擊記錄出發</span>
+                </button>
+                <button class="btn-clock btn-return" onclick="clockIn('回程')">
+                    🏠 回 程
+                    <span class="sub-text">點擊記錄返回</span>
+                </button>
             </div>
         </div>
 
-        <!-- 3. 本地紀錄 -->
+        <!-- 3. 紀錄 -->
         <div class="card">
-            <div class="card-title" style="margin-bottom: 10px;">3. 本機執行紀錄</div>
+            <div class="card-title" style="margin-bottom: 10px;">3. 今日打卡紀錄</div>
+            <div id="durationBadge" class="summary-badge">本日累計外勤時間：0 分鐘</div>
             <div id="historyList" class="history-list">
-                <div style="text-align: center; color: #94a3b8; padding: 10px;">尚無紀錄</div>
+                <div style="text-align: center; color: #94a3b8; padding: 10px;">尚無打卡紀錄</div>
             </div>
         </div>
     </div>
 
     <script>
-        const scriptUrl = "https://script.google.com/macros/s/您的部署ID/exec"; // 記得換成您的網址
-
+        // 🚀 請將下方引號內的網址替換為您的 Google Apps Script 部署網址
+        const scriptUrl = "https://script.google.com/macros/s/您的部署ID/exec"; 
+        
+        let isLocked = false;
         let historyData = [];
+        let audioCtx = null;
+
+        window.onload = function() {
+            const savedName = localStorage.getItem('staff_name');
+            const savedUnit = localStorage.getItem('unit_name');
+            if (savedName) document.getElementById('nameInput').value = savedName;
+            if (savedUnit) document.getElementById('unitInput').value = savedUnit;
+
+            if (savedName && savedUnit) {
+                setLock(true);
+            }
+        };
+
+        function toggleLock() {
+            if (isLocked) {
+                setLock(false);
+            } else {
+                const name = document.getElementById('nameInput').value.trim();
+                const unit = document.getElementById('unitInput').value.trim();
+                if (!name || !unit) {
+                    alert('請先填寫姓名與組別！');
+                    return;
+                }
+                localStorage.setItem('staff_name', name);
+                localStorage.setItem('unit_name', unit);
+                setLock(true);
+            }
+        }
+
+        function setLock(lock) {
+            isLocked = lock;
+            const nameInput = document.getElementById('nameInput');
+            const unitInput = document.getElementById('unitInput');
+            const lockBtn = document.getElementById('lockBtn');
+
+            nameInput.disabled = lock;
+            unitInput.disabled = lock;
+
+            if (lock) {
+                lockBtn.innerText = "🔒 已鎖定";
+                lockBtn.style.backgroundColor = "#e0e7ff";
+                lockBtn.style.color = "#3730a3";
+            } else {
+                lockBtn.innerText = "🔓 解鎖中";
+                lockBtn.style.backgroundColor = "#f1f5f9";
+                lockBtn.style.color = "#64748b";
+            }
+        }
+
+        function playBeep() {
+            try {
+                if (!audioCtx) {
+                    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (audioCtx.state === 'suspended') {
+                    audioCtx.resume();
+                }
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(900, audioCtx.currentTime + 0.1);
+                
+                gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.25);
+                
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+            } catch (e) {
+                console.log('音效播放失敗', e);
+            }
+        }
 
         async function clockIn(type) {
             const name = document.getElementById('nameInput').value.trim();
-            const cardNo = document.getElementById('cardNoInput').value.trim();
-            const remark = document.getElementById('remarkInput').value.trim();
+            const unit = document.getElementById('unitInput').value.trim();
 
-            if (!name) {
-                alert('請先填寫人員名稱！');
+            if (!name || !unit) {
+                alert('請先完成身分設定！');
                 return;
             }
 
-            const payload = {
-                name: name,
-                unit: "", 
-                cardNo: cardNo,
-                remark: remark,
-                type: type
-            };
+            if (!isLocked) {
+                localStorage.setItem('staff_name', name);
+                localStorage.setItem('unit_name', unit);
+                setLock(true);
+            }
+
+            playBeep();
 
             const now = new Date();
-            const timeStr = now.toLocaleTimeString();
+            const dateStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const timeStr = `${dateStr} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
 
             if (type === '出發') {
-                historyData.unshift({ text: `[通知] ${name} (卡號:${cardNo}) - ${timeStr}` });
-            } else {
-                historyData.unshift({ text: `[完成] ${name} - ${timeStr}` });
+                const newRecord = { date: dateStr, name, unit, startTime: timeStr, endTime: '-', durationMins: 0, status: '進行中' };
+                historyData.unshift(newRecord);
+                renderHistory();
+            } else if (type === '回程') {
+                const activeRecord = historyData.find(item => item.name === name && item.status === '進行中');
+                if (!activeRecord) {
+                    alert('目前沒有進行中的「出發」紀錄可供回程！');
+                    return;
+                }
+                const startTime = new Date(activeRecord.startTime.replace(/-/g, "/"));
+                const diffMs = now - startTime;
+                const diffMins = Math.round(diffMs / 60000);
+
+                activeRecord.endTime = timeStr;
+                activeRecord.durationMins = diffMins;
+                activeRecord.status = '已完成';
+                
+                renderHistory();
             }
-            renderHistory();
 
             if (scriptUrl && !scriptUrl.includes("您的部署ID")) {
                 try {
@@ -197,27 +360,47 @@
                         method: 'POST',
                         mode: 'no-cors',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
+                        body: JSON.stringify({ name: name, unit: unit, type: type })
                     });
-                    alert(type + ' 紀錄已成功同步至雲端試算表！');
                 } catch (err) {
-                    console.error('同步失敗', err);
-                    alert('同步至雲端失敗');
+                    console.error('雲端同步失敗', err);
                 }
+            }
+        }
+
+        function deleteRecord(index) {
+            if (confirm('確定要刪除這筆紀錄嗎？')) {
+                historyData.splice(index, 1);
+                renderHistory();
             }
         }
 
         function renderHistory() {
             const container = document.getElementById('historyList');
             if (historyData.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 10px;">尚無紀錄</div>';
+                container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 10px;">尚無打卡紀錄</div>';
+                document.getElementById('durationBadge').innerText = '本日累計外勤時間：0 分鐘';
                 return;
             }
+
             let html = '';
-            historyData.forEach(item => {
-                html += `<div class="history-item">${item.text}</div>`;
+            let totalMins = 0;
+
+            historyData.forEach((item, index) => {
+                if (item.status === '已完成') {
+                    totalMins += item.durationMins;
+                }
+                html += `<div class="history-item">
+                    <div>
+                        <strong>${item.date} | ${item.name} (${item.unit})</strong><br>
+                        出發: ${item.startTime.split(' ')[1]} | 回程: ${item.endTime !== '-' ? item.endTime.split(' ')[1] : '-'}<br>
+                        累計: <strong>${item.durationMins}</strong> 分鐘 [${item.status}]
+                    </div>
+                    <button class="btn-delete" onclick="deleteRecord(${index})">🗑</button>
+                </div>`;
             });
             container.innerHTML = html;
+            document.getElementById('durationBadge').innerText = `本日累計外勤時間：${totalMins} 分鐘`;
         }
     </script>
 </body>
