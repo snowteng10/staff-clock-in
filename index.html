@@ -1,39 +1,224 @@
-function doPost(e) {
-  try {
-    var data = JSON.parse(e.postData.contents);
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    
-    var now = new Date();
-    var dateStr = Utilities.formatDate(now, "GMT+8", "yyyy-MM-dd");
-    var timeStr = Utilities.formatDate(now, "GMT+8", "yyyy-MM-dd HH:mm:ss");
-    
-    if (data.type === '出發') {
-      // 依序寫入：日期、姓名、組別、出發時間、回程時間(空)、累計時間(空)
-      sheet.appendRow([dateStr, data.name, data.unit, timeStr, "", ""]);
-    } else if (data.type === '回程') {
-      var rows = sheet.getDataRange().getValues();
-      for (var i = rows.length - 1; i >= 1; i--) {
-        // 檢查姓名(第2欄)與組別(第3欄)，且回程時間(第5欄)為空
-        if (rows[i][1] === data.name && rows[i][2] === data.unit && rows[i][4] === "") {
-          var departureTimeStr = rows[i][3];
-          var departureDate = new Date(departureTimeStr.replace(/-/g, "/"));
-          var returnDate = now;
-          
-          var diffMs = returnDate - departureDate;
-          var diffMins = Math.round(diffMs / 60000);
-          
-          // 更新第5欄(E欄：回程時間)與第6欄(F欄：累計分鐘)
-          sheet.getRange(i + 1, 5).setValue(timeStr);
-          sheet.getRange(i + 1, 6).setValue(diffMins);
-          break;
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>外勤出發/返回打卡系統</title>
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --bg-color: #f8fafc;
+            --card-bg: #ffffff;
+            --text-main: #1e293b;
+            --text-secondary: #64748b;
+            --border-color: #e2e8f0;
         }
-      }
-    }
-    
-    return ContentService.createTextOutput(JSON.stringify({"status": "success"}))
-                         .setMimeType(ContentService.MimeType.JSON);
-  } catch (error) {
-    return ContentService.createTextOutput(JSON.stringify({"status": "error", "message": error.toString()}))
-                         .setMimeType(ContentService.MimeType.JSON);
-  }
-}
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            margin: 0;
+            padding: 16px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+        }
+        .container {
+            width: 100%;
+            max-width: 480px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        h2.main-title {
+            font-size: 20px;
+            font-weight: 700;
+            margin: 0 0 4px 0;
+        }
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+            margin: 0;
+        }
+        .btn-lock {
+            background: #f1f5f9;
+            border: 1px solid var(--border-color);
+            color: var(--text-secondary);
+            font-size: 12px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .form-group {
+            margin-bottom: 10px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 3px;
+            color: var(--text-secondary);
+        }
+        .form-control {
+            width: 100%;
+            padding: 9px 12px;
+            font-size: 14px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-sizing: border-box;
+            outline: none;
+        }
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .btn-clock {
+            flex: 1;
+            padding: 16px 12px;
+            font-size: 16px;
+            font-weight: 700;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            color: white;
+        }
+        .btn-departure { background: linear-gradient(135deg, #0284c7, #0369a1); }
+        .btn-return { background: linear-gradient(135deg, #10b981, #059669); }
+        .history-list {
+            max-height: 180px;
+            overflow-y: auto;
+            font-size: 13px;
+            color: var(--text-secondary);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .history-item {
+            padding: 8px 10px;
+            background-color: var(--bg-color);
+            border-radius: 8px;
+            border-left: 3px solid var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2 class="main-title">外勤任務管理系統</h2>
+
+        <!-- 1. 基本設定 -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">1. 人員與任務資訊</div>
+            </div>
+            <div class="form-group">
+                <label>人員名稱 / 組別：</label>
+                <input type="text" id="nameInput" class="form-control" placeholder="例如：M999 (CT)">
+            </div>
+            <div class="form-group">
+                <label>接藥人卡號：</label>
+                <input type="text" id="cardNoInput" class="form-control" placeholder="例如：4453">
+            </div>
+            <div class="form-group">
+                <label>備註說明：</label>
+                <input type="text" id="remarkInput" class="form-control" placeholder="選填">
+            </div>
+        </div>
+
+        <!-- 2. 打卡按鈕 -->
+        <div class="card">
+            <div class="card-title">2. 執行動作</div>
+            <div class="action-buttons">
+                <button class="btn-clock btn-departure" onclick="clockIn('出發')">🚀 出 發 (通知)</button>
+                <button class="btn-clock btn-return" onclick="clockIn('回程')">🏠 回 程 (完成)</button>
+            </div>
+        </div>
+
+        <!-- 3. 本地紀錄 -->
+        <div class="card">
+            <div class="card-title" style="margin-bottom: 10px;">3. 本機執行紀錄</div>
+            <div id="historyList" class="history-list">
+                <div style="text-align: center; color: #94a3b8; padding: 10px;">尚無紀錄</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const scriptUrl = "https://script.google.com/macros/s/您的部署ID/exec"; // 記得換成您的網址
+
+        let historyData = [];
+
+        async function clockIn(type) {
+            const name = document.getElementById('nameInput').value.trim();
+            const cardNo = document.getElementById('cardNoInput').value.trim();
+            const remark = document.getElementById('remarkInput').value.trim();
+
+            if (!name) {
+                alert('請先填寫人員名稱！');
+                return;
+            }
+
+            const payload = {
+                name: name,
+                unit: "", 
+                cardNo: cardNo,
+                remark: remark,
+                type: type
+            };
+
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString();
+
+            if (type === '出發') {
+                historyData.unshift({ text: `[通知] ${name} (卡號:${cardNo}) - ${timeStr}` });
+            } else {
+                historyData.unshift({ text: `[完成] ${name} - ${timeStr}` });
+            }
+            renderHistory();
+
+            if (scriptUrl && !scriptUrl.includes("您的部署ID")) {
+                try {
+                    await fetch(scriptUrl, {
+                        method: 'POST',
+                        mode: 'no-cors',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    alert(type + ' 紀錄已成功同步至雲端試算表！');
+                } catch (err) {
+                    console.error('同步失敗', err);
+                    alert('同步至雲端失敗');
+                }
+            }
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('historyList');
+            if (historyData.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 10px;">尚無紀錄</div>';
+                return;
+            }
+            let html = '';
+            historyData.forEach(item => {
+                html += `<div class="history-item">${item.text}</div>`;
+            });
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
