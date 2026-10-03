@@ -1,24 +1,6 @@
-// 即時更新時鐘的函數
-function updateClock() {
-  const now = new Date();
-  
-  // 格式化時間為 12 小時制或 24 小時制（這裡示範 24 小時制：HH:mm:ss）
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  
-  const timeString = `${hours}:${minutes}:${seconds}`;
-  
-  // 將時間塞入網頁中的 span 標籤
-  const clockElement = document.getElementById('liveClock');
-  if (clockElement) {
-    clockElement.innerText = timeString;
-  }
-}
-
-// 網頁載入後立即執行一次，並設定每秒（1000毫秒）自動更新一次
-setInterval(updateClock, 1000);
-window.onload = updateClock;
+<div class="time-display" style="font-size: 18px; font-weight: bold; margin-bottom: 15px;">
+  目前時間：<span id="liveClock">載入中...</span>
+</div>
 }<!DOCTYPE html>
 <html lang="zh-TW">
 <head>
