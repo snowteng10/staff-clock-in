@@ -90,9 +90,6 @@
             cursor: pointer;
             font-weight: 500;
         }
-        .btn-clear:hover {
-            background: #fecaca;
-        }
         .form-group {
             margin-bottom: 10px;
         }
@@ -153,7 +150,6 @@
             font-weight: 500;
         }
 
-        /* 總計外勤時間橫幅 */
         .summary-banner {
             background: #e0e7ff;
             color: #3730a3;
@@ -166,14 +162,13 @@
         }
 
         .history-list {
-            max-height: 200px;
+            max-height: 220px;
             overflow-y: auto;
             font-size: 13px;
             display: flex;
             flex-direction: column;
             gap: 8px;
         }
-        /* 合併列樣式 */
         .history-item {
             padding: 10px 12px;
             background-color: var(--bg-color);
@@ -196,23 +191,35 @@
             font-size: 11px;
             color: var(--text-secondary);
         }
+        .history-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 4px;
+        }
         .history-times {
             display: flex;
-            gap: 8px;
+            gap: 6px;
             font-family: monospace;
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
         }
-        /* 顏色區分：出發 (藍色) / 回程 (綠色) / 進行中 (橘色) */
-        .time-out { color: #0284c7; background: #e0f2fe; padding: 2px 6px; border-radius: 4px; }
-        .time-in { color: #059669; background: #d1fae5; padding: 2px 6px; border-radius: 4px; }
-        .time-pending { color: #d97706; background: #fef3c7; padding: 2px 6px; border-radius: 4px; }
+        .history-duration {
+            font-size: 11px;
+            font-weight: 700;
+            color: #4f46e5;
+            background: #e0e7ff;
+            padding: 1px 6px;
+            border-radius: 4px;
+        }
+        .time-out { color: #0284c7; background: #e0f2fe; padding: 2px 5px; border-radius: 4px; }
+        .time-in { color: #059669; background: #d1fae5; padding: 2px 5px; border-radius: 4px; }
+        .time-pending { color: #d97706; background: #fef3c7; padding: 2px 5px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <!-- 即時時鐘列 -->
         <div class="top-clock-bar">
             <span>目前時間</span>
             <span id="liveClock">載入中...</span>
@@ -220,7 +227,6 @@
 
         <h2 class="main-title">C區出發/返回打卡系統</h2>
 
-        <!-- 1. 身分設定 -->
         <div class="card">
             <div class="card-header">
                 <div class="card-title">1. 身分設定</div>
@@ -240,26 +246,21 @@
             </div>
         </div>
 
-        <!-- 2. 立即打卡 -->
         <div class="card">
             <div class="card-title" style="margin-bottom: 5px;">2. 立即打卡</div>
-            
             <button class="retro-toggle" onclick="toggleRetroMode()">⏱️ 展開 / 關閉「補打卡時間調整」</button>
-            
             <div id="retroBox" class="retro-box">
                 <div class="form-group" style="margin-bottom: 0;">
-                    <label>指定自訂打卡時間 (若忘記打卡可在此修改)：</label>
+                    <label>指定自訂打卡時間：</label>
                     <input type="time" id="customTimeInput" class="form-control">
                 </div>
             </div>
-
             <div class="action-buttons">
                 <button class="btn-clock btn-departure" onclick="clockIn('出發')">🚀 出 發</button>
                 <button class="btn-clock btn-return" onclick="clockIn('回程')">🏠 回 程</button>
             </div>
         </div>
 
-        <!-- 3. 本日打卡紀錄 -->
         <div class="card">
             <div class="summary-banner" id="summaryBanner">
                 本日累計外勤時間：0 分鐘
@@ -275,28 +276,21 @@
     </div>
 
     <script>
-        // ★ 請將下方網址替換為您的 Google Apps Script 部署網址
         const scriptUrl = "https://script.google.com/macros/s/您的部署ID/exec";
-
         let isLocked = false;
         
         window.onload = function() {
             updateClock();
             setInterval(updateClock, 1000);
-            
             checkAndClearHistoryForNewDay();
             renderHistory();
-            
             const now = new Date();
             document.getElementById('customTimeInput').value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         };
 
         function updateClock() {
             const now = new Date();
-            const hours = String(now.getHours()).padStart(2, '0');
-            const minutes = String(now.getMinutes()).padStart(2, '0');
-            const seconds = String(now.getSeconds()).padStart(2, '0');
-            document.getElementById('liveClock').innerText = `${hours}:${minutes}:${seconds}`;
+            document.getElementById('liveClock').innerText = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
         }
 
         function playBeepSound() {
@@ -304,22 +298,16 @@
                 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 const oscillator = audioCtx.createOscillator();
                 const gainNode = audioCtx.createGain();
-                
                 oscillator.type = 'sine';
                 oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime);
                 oscillator.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
-                
                 gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-                
                 oscillator.connect(gainNode);
                 gainNode.connect(audioCtx.destination);
-                
                 oscillator.start();
                 oscillator.stop(audioCtx.currentTime + 0.3);
-            } catch (e) {
-                console.log('音效播放失敗', e);
-            }
+            } catch (e) {}
         }
 
         function toggleLock() {
@@ -327,8 +315,6 @@
             document.getElementById('nameInput').disabled = isLocked;
             document.getElementById('unitInput').disabled = isLocked;
             document.getElementById('lockBtn').innerText = isLocked ? "🔒 已鎖定" : "🔓 解鎖";
-            document.getElementById('lockBtn').style.background = isLocked ? "#e0e7ff" : "#f1f5f9";
-            document.getElementById('lockBtn').style.color = isLocked ? "#4f46e5" : "#64748b";
         }
 
         function toggleRetroMode() {
@@ -338,8 +324,7 @@
 
         function checkAndClearHistoryForNewDay() {
             const todayStr = new Date().toDateString();
-            const savedDate = localStorage.getItem('lastRecordDate');
-            if (savedDate !== todayStr) {
+            if (localStorage.getItem('lastRecordDate') !== todayStr) {
                 localStorage.removeItem('clockHistoryPairs');
                 localStorage.setItem('lastRecordDate', todayStr);
             }
@@ -356,7 +341,7 @@
         }
 
         function clearLocalHistory() {
-            if (confirm('確定要清除本機顯示的所有本日打卡紀錄嗎？（注意：這只會清除畫面顯示，雲端試算表的資料仍會保留）')) {
+            if (confirm('確定要清除本機顯示的所有本日打卡紀錄嗎？')) {
                 localStorage.removeItem('clockHistoryPairs');
                 renderHistory();
             }
@@ -391,7 +376,6 @@
             };
 
             playBeepSound();
-
             let history = getLocalHistory();
             
             if (type === '出發') {
@@ -410,7 +394,7 @@
                     const outDate = new Date("1970-01-01T" + found.outTime + ":00");
                     const inDate = new Date("1970-01-01T" + found.inTime + ":00");
                     let diffMins = Math.round((inDate - outDate) / 60000);
-                    if (diffMins < 0) diffMins = 0;
+                    if (diffMins < 0) diffMins += 24 * 60; // 跨日防呆
                     found.duration = diffMins;
                 } else {
                     history.unshift({
@@ -438,10 +422,7 @@
                     alert(type + ' 記錄已成功同步至雲端！');
                 } catch (err) {
                     console.error('同步失敗', err);
-                    alert('同步至雲端失敗');
                 }
-            } else {
-                alert('尚未設定正確的 scriptUrl 部署網址，僅記錄於本機。');
             }
         }
 
@@ -460,10 +441,14 @@
 
             container.innerHTML = history.map(item => {
                 let timeDisplay = '';
-                if (item.outTime && item.inTime) {
+                let durationBadge = '';
+
+                if (item.outTime && item.inTime && item.outTime !== '--:--') {
                     timeDisplay = `<span class="time-out">出: ${item.outTime}</span> <span class="time-in">回: ${item.inTime}</span>`;
+                    durationBadge = `<span class="history-duration">單次歷時: ${item.duration} 分鐘</span>`;
                 } else if (item.outTime) {
                     timeDisplay = `<span class="time-out">出: ${item.outTime}</span> <span class="time-pending">回: 進行中</span>`;
+                    durationBadge = `<span class="history-duration" style="background:#fef3c7; color:#d97706;">進行中...</span>`;
                 } else {
                     timeDisplay = `<span class="time-in">回: ${item.inTime}</span>`;
                 }
@@ -474,8 +459,9 @@
                             <span class="history-name">${item.name} (${item.unit})</span>
                             <span class="history-remark">${item.remark ? '備註: ' + item.remark : ''}</span>
                         </div>
-                        <div class="history-times">
-                            ${timeDisplay}
+                        <div class="history-right">
+                            <div class="history-times">${timeDisplay}</div>
+                            ${durationBadge}
                         </div>
                     </div>
                 `;
