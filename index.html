@@ -3,65 +3,77 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>外勤打卡系統</title>
-    <!-- 引入 Bootstrap 5 樣式讓畫面好看又響應式 -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <title>打卡系統</title>
     <style>
         body {
-            background-color: #f8f9fa;
-            padding-top: 40px;
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            max-width: 400px;
         }
-        .card {
-            border-radius: 15px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            font-size: 16px;
+        }
+        .btn-container {
+            display: flex;
+            gap: 10px;
+        }
+        #statusMessage {
+            margin-top: 15px;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
 
-    <div class="container" style="max-width: 500px;">
-        <div class="card p-4 bg-white">
-            <h3 class="text-center mb-4">🏥 外勤打卡系統</h3>
-            
-            <!-- 姓名輸入框 -->
-            <div class="mb-3">
-                <label for="nameInput" class="form-label">**姓名**</label>
-                <input type="text" id="nameInput" class="form-control" placeholder="請輸入您的姓名">
-            </div>
+    <h2>打卡系統</h2>
 
-            <!-- 組別下拉選單 (C T / X光 / sono) -->
-            <div class="mb-3">
-                <label for="unitSelect" class="form-label">**組別**</label>
-                <select id="unitSelect" class="form-select">
-                    <option value="" disabled selected>請選擇組別</option>
-                    <option value="C T">C T</option>
-                    <option value="X光">X光</option>
-                    <option value="sono">sono</option>
-                </select>
-            </div>
-
-            <!-- 備註說明（選填） -->
-            <div class="mb-4">
-                <label for="remarkInput" class="form-label">備註說明 (選填)</label>
-                <input type="text" id="remarkInput" class="form-control" placeholder="例如：某某地點或事項">
-            </div>
-
-            <!-- 打卡按鈕區 -->
-            <div class="d-grid gap-2 d-md-flex justify-content-md-between">
-                <button onclick="sendData('出發')" class="btn btn-primary btn-lg flex-fill">🚗 出發打卡</button>
-                <button onclick="sendData('回程')" class="btn btn-success btn-lg flex-fill">🏁 回程打卡</button>
-            </div>
-
-            <!-- 提示訊息 -->
-            <div id="statusMessage" class="mt-3 text-center text-muted"></div>
-        </div>
+    <!-- 姓名輸入框 -->
+    <div class="form-group">
+        <label for="nameInput">姓名</label>
+        <input type="text" id="nameInput" placeholder="請輸入姓名">
     </div>
 
+    <!-- 組別下拉選單 (C T, X光, sono) -->
+    <div class="form-group">
+        <label for="unitSelect">組別</label>
+        <select id="unitSelect">
+            <option value="" disabled selected>請選擇組別</option>
+            <option value="C T">C T</option>
+            <option value="X光">X光</option>
+            <option value="sono">sono</option>
+        </select>
+    </div>
+
+    <!-- 備註說明（保留您原本可能有的欄位，若無可自行保留或略過） -->
+    <div class="form-group">
+        <label for="remarkInput">備註說明 (選填)</label>
+        <input type="text" id="remarkInput" placeholder="備註說明">
+    </div>
+
+    <!-- 出發 / 回程按鈕 -->
+    <div class="btn-container">
+        <button onclick="sendData('出發')" style="background-color: #007bff; color: white; border: none; cursor: pointer;">出發</button>
+        <button onclick="sendData('回程')" style="background-color: #28a745; color: white; border: none; cursor: pointer;">回程</button>
+    </div>
+
+    <div id="statusMessage"></div>
+
     <script>
-        // ★ 請在此填入您的 Google Apps Script 部署網址 (WebApp URL)
+        // ★ 請務必將此處替換為您原本正在使用的 Google Apps Script 部署網址
         const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw2tv8HtGK2sfBjdbv8yLXGtH_Ruv7FPMEBZ977Qbx1ln2V2VNiyPcyt5ZESiig4tTlcw/exec';
 
-        // 1. 當網頁載入時，自動從瀏覽器記憶體 (localStorage) 帶入上次儲存的姓名與組別
+        // 1. 網頁載入時：自動從瀏覽器記憶體 (localStorage) 帶入上次填寫的姓名與組別
         window.onload = function() {
             var savedName = localStorage.getItem('saved_name');
             var savedUnit = localStorage.getItem('saved_unit');
@@ -74,26 +86,23 @@
             }
         };
 
-        // 2. 點擊出發或回程時觸發的函數
+        // 2. 點擊按鈕送出資料
         function sendData(type) {
             var name = document.getElementById('nameInput').value.trim();
             var unit = document.getElementById('unitSelect').value;
             var remark = document.getElementById('remarkInput').value.trim();
             var msgDiv = document.getElementById('statusMessage');
             
-            // 檢查是否填寫
             if (!name) {
-                alert('請先填寫姓名！');
-                document.getElementById('nameInput').focus();
+                alert('請填寫姓名！');
                 return;
             }
             if (!unit) {
                 alert('請選擇組別！');
-                document.getElementById('unitSelect').focus();
                 return;
             }
 
-            // 將姓名與組別存入 localStorage，下次關閉網頁重開也會自動鎖定記憶
+            // 將姓名與組別存入瀏覽器記憶體，下次關閉重開也會自動鎖定
             localStorage.setItem('saved_name', name);
             localStorage.setItem('saved_unit', unit);
 
@@ -104,9 +113,9 @@
                 remark: remark
             };
 
-            msgDiv.innerHTML = `<span class="text-primary">正在送出 ${type} 記錄...</span>`;
+            msgDiv.style.color = 'black';
+            msgDiv.innerText = '正在送出 ' + type + ' 記錄...';
 
-            // 發送到 Google Apps Script
             fetch(SCRIPT_URL, {
                 method: 'POST',
                 body: JSON.stringify(payload)
@@ -114,16 +123,18 @@
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    msgDiv.innerHTML = `<span class="text-success fw-bold">✅ ${type} 打卡成功！</span>`;
-                    // 清空備註欄位
-                    document.getElementById('remarkInput').value = '';
+                    msgDiv.style.color = 'green';
+                    msgDiv.innerText = type + ' 打卡成功！';
+                    document.getElementById('remarkInput').value = ''; // 清空備註
                 } else {
-                    msgDiv.innerHTML = `<span class="text-danger">❌ 打卡失敗：${data.message || '未知錯誤'}</span>`;
+                    msgDiv.style.color = 'red';
+                    msgDiv.innerText = '打卡失敗：' + (data.message || '未知錯誤');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                msgDiv.innerHTML = `<span class="text-danger">❌ 連線錯誤，請檢查網路或指令碼網址</span>`;
+                msgDiv.style.color = 'red';
+                msgDiv.innerText = '連線錯誤，請稍後再試';
             });
         }
     </script>
