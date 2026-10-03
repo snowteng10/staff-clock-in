@@ -120,6 +120,27 @@
         }
         .btn-departure { background: linear-gradient(135deg, #0284c7, #0369a1); }
         .btn-return { background: linear-gradient(135deg, #10b981, #059669); }
+        
+        /* 補打卡區塊樣式 */
+        .retro-box {
+            background: #f8fafc;
+            border: 1px dashed var(--border-color);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 12px;
+            display: none;
+        }
+        .retro-toggle {
+            font-size: 13px;
+            color: var(--primary-color);
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            margin-top: 8px;
+            font-weight: 500;
+        }
+
         .history-list {
             max-height: 180px;
             overflow-y: auto;
@@ -170,7 +191,18 @@
 
         <!-- 2. 立即打卡 -->
         <div class="card">
-            <div class="card-title" style="margin-bottom: 10px;">2. 立即打卡</div>
+            <div class="card-title" style="margin-bottom: 5px;">2. 立即打卡</div>
+            
+            <button class="retro-toggle" onclick="toggleRetroMode()">⏱️ 展開 / 關閉「補打卡時間調整」</button>
+            
+            <!-- 補打卡時間調整面板 -->
+            <div id="retroBox" class="retro-box">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label>指定自訂打卡時間 (若忘記打卡可在此修改)：</label>
+                    <input type="time" id="customTimeInput" class="form-control">
+                </div>
+            </div>
+
             <div class="action-buttons">
                 <button class="btn-clock btn-departure" onclick="clockIn('出發')">🚀 出 發</button>
                 <button class="btn-clock btn-return" onclick="clockIn('回程')">🏠 回 程</button>
@@ -179,7 +211,7 @@
 
         <!-- 3. 本日打卡紀錄 -->
         <div class="card">
-            <div class="card-title" style="margin-bottom: 10px;">3. 本日打卡紀錄</div>
+            <div class="card-title" style="margin-bottom: 10px;">3. 本日打卡紀錄 (跨日自動清除)</div>
             <div id="historyList" class="history-list">
                 <div style="text-align: center; color: #94a3b8; padding: 10px;">尚無打卡紀錄</div>
             </div>
@@ -188,10 +220,23 @@
 
     <script>
         // ★ 請將下方網址替換為您的 Google Apps Script 部署網址
-        const scriptUrl = "https://script.google.com/macros/s/AKfycbw2tv8HtGK2sfBjdbv8yLXGtH_Ruv7FPMEBZ977Qbx1ln2V2VNiyPcyt5ZESiig4tTlcw/exec";
+        const scriptUrl = "https://script.google.com/macros/s/您的部署ID/exec";
 
         let isLocked = false;
-        let historyData = [];
+        
+        // ── 頁面載入與跨日自動清除初始化 ──
+        window.onload = function() {
+            updateClock();
+            setInterval(updateClock, 1000);
+            
+            // 檢查是否跨日，若是則自動清除本機快取的本日紀錄
+            checkAndClearHistoryForNewDay();
+            renderHistory();
+            
+            // 初始化補打卡時間為當前時間
+            const now = new Date();
+            document.getElementById('customTimeInput').value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+        };
 
         // 即時時鐘
         function updateClock() {
@@ -201,8 +246,30 @@
             const seconds = String(now.getSeconds()).padStart(2, '0');
             document.getElementById('liveClock').innerText = `${hours}:${minutes}:${seconds}`;
         }
-        setInterval(updateClock, 1000);
-        window.onload = updateClock;
+
+        // 播放打卡成功音效 (Web Audio API)
+        function playBeepSound() {
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioCtx.createOscillator();
+                const gainNode = audioCtx.createGain();
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5 音符
+                oscillator.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1); // A5 音符
+                
+                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioCtx.destination);
+                
+                oscillator.start();
+                oscillator.stop(audioCtx.currentTime + 0.3);
+            } catch (e) {
+                console.log('音效播放不支援或被瀏覽器阻擋', e);
+            }
+        }
 
         // 鎖定身分
         function toggleLock() {
@@ -214,21 +281,72 @@
             document.getElementById('lockBtn').style.color = isLocked ? "#4f46e5" : "#64748b";
         }
 
-        // 打卡動作
+        // 切換補打卡面板顯示
+        function toggleRetroMode() {
+            const box = document.getElementById('retroBox');
+            box.style.display = box.style.display === 'block' ? 'none' : 'block';
+        }
+
+        // 檢查跨日自動清除
+        function checkAndClearHistoryForNewDay() {
+            const todayStr = new Date().toDateString(); // 例如 "Sat Oct 03 2026"
+            const savedDate = localStorage.getItem('lastRecordDate');
+            
+            if (savedDate !== todayStr) {
+                // 如果日期不同，代表跨日了，清空本機紀錄
+                localStorage.removeItem('clockHistory');
+                localStorage.setItem('lastRecordDate', todayStr);
+            }
+        }
+
+        // 讀取與儲存本機紀錄
+        function getLocalHistory() {
+            const data = localStorage.getItem('clockHistory');
+            return data ? JSON.parse(data) : [];
+        }
+
+        function saveLocalHistory(history) {
+            localStorage.setItem('clockHistory', JSON.stringify(history));
+            localStorage.setItem('lastRecordDate', new Date().toDateString());
+        }
+
+        // 打卡動作 (支援補打卡)
         async function clockIn(type) {
             const name = document.getElementById('nameInput').value.trim();
             const unit = document.getElementById('unitInput').value.trim();
             const remark = document.getElementById('remarkInput').value.trim();
+            const customTime = document.getElementById('customTimeInput').value; // 取得補打卡時間 (格式 "HH:mm")
 
             if (!name || !unit) {
                 alert('請先填寫姓名與組別！');
                 return;
             }
 
-            const payload = { name, unit, remark, type };
-            const timeStr = new Date().toLocaleTimeString();
+            // 判斷是否使用補打卡時間
+            let finalTimeStr;
+            const retroBoxVisible = document.getElementById('retroBox').style.display === 'block';
+            if (retroBoxVisible && customTime) {
+                finalTimeStr = customTime + ":00"; // 轉為 HH:mm:ss
+            } else {
+                const now = new Date();
+                finalTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
+            }
 
-            historyData.unshift({ text: `[${type}] ${name} (${unit}) - ${timeStr}` });
+            const payload = { 
+                name, 
+                unit, 
+                remark: retroBoxVisible ? `[補打卡] ${remark}` : remark, 
+                type,
+                customTime: finalTimeStr // 傳遞給後台做精確計算
+            };
+
+            // 播放提示音
+            playBeepSound();
+
+            // 更新畫面上紀錄
+            let historyData = getLocalHistory();
+            historyData.unshift({ text: `[${type}] ${name} (${unit}) - ${finalTimeStr}` });
+            saveLocalHistory(historyData);
             renderHistory();
 
             if (scriptUrl && !scriptUrl.includes("您的部署ID")) {
@@ -239,10 +357,10 @@
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(payload)
                     });
-                    alert(type + ' 記錄已同步至雲端！');
+                    alert(type + ' 記錄已成功同步至雲端！');
                 } catch (err) {
                     console.error('同步失敗', err);
-                    alert('同步至雲端失敗');
+                    alert('同步至雲端失敗，請檢查網路連線');
                 }
             } else {
                 alert('尚未設定正確的 scriptUrl 部署網址，僅記錄於本機。');
@@ -251,6 +369,8 @@
 
         function renderHistory() {
             const container = document.getElementById('historyList');
+            const historyData = getLocalHistory();
+            
             if (historyData.length === 0) {
                 container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 10px;">尚無打卡紀錄</div>';
                 return;
