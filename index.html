@@ -3,469 +3,128 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>C區出發/返回打卡系統</title>
+    <title>外勤打卡系統</title>
+    <!-- 引入 Bootstrap 5 樣式讓畫面好看又響應式 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        :root {
-            --primary-color: #4f46e5;
-            --bg-color: #f8fafc;
-            --card-bg: #ffffff;
-            --text-main: #1e293b;
-            --text-secondary: #64748b;
-            --border-color: #e2e8f0;
-        }
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            margin: 0;
-            padding: 16px;
-            display: flex;
-            justify-content: center;
-            align-items: flex-start;
-            min-height: 100vh;
-        }
-        .container {
-            width: 100%;
-            max-width: 480px;
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .top-clock-bar {
-            font-size: 15px;
-            font-weight: 600;
-            color: var(--text-secondary);
-            background: #ffffff;
-            padding: 10px 16px;
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        #liveClock {
-            color: var(--primary-color);
-            font-family: monospace;
-            font-size: 16px;
-        }
-        h2.main-title {
-            font-size: 20px;
-            font-weight: 700;
-            margin: 0;
+            background-color: #f8f9fa;
+            padding-top: 40px;
         }
         .card {
-            background-color: var(--card-bg);
-            border-radius: 12px;
-            padding: 18px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            border: 1px solid var(--border-color);
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         }
-        .card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-        .card-title {
-            font-size: 15px;
-            font-weight: 600;
-            margin: 0;
-        }
-        .btn-lock {
-            background: #f1f5f9;
-            border: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            font-size: 12px;
-            padding: 4px 10px;
-            border-radius: 6px;
-            cursor: pointer;
-        }
-        .btn-clear {
-            background: #fee2e2;
-            border: 1px solid #fca5a5;
-            color: #b91c1c;
-            font-size: 12px;
-            padding: 4px 8px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 500;
-        }
-        .form-group {
-            margin-bottom: 10px;
-        }
-        .form-group label {
-            display: block;
-            font-size: 12px;
-            font-weight: 500;
-            margin-bottom: 3px;
-            color: var(--text-secondary);
-        }
-        .form-control {
-            width: 100%;
-            padding: 9px 12px;
-            font-size: 14px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            box-sizing: border-box;
-            outline: none;
-        }
-        .form-control:disabled {
-            background-color: #f1f5f9;
-            color: #94a3b8;
-        }
-        .action-buttons {
-            display: flex;
-            gap: 12px;
-            margin-top: 12px;
-        }
-        .btn-clock {
-            flex: 1;
-            padding: 16px 12px;
-            font-size: 16px;
-            font-weight: 700;
-            border: none;
-            border-radius: 12px;
-            cursor: pointer;
-            color: white;
-        }
-        .btn-departure { background: linear-gradient(135deg, #0284c7, #0369a1); }
-        .btn-return { background: linear-gradient(135deg, #10b981, #059669); }
-        
-        .retro-box {
-            background: #f8fafc;
-            border: 1px dashed var(--border-color);
-            padding: 10px;
-            border-radius: 8px;
-            margin-top: 12px;
-            display: none;
-        }
-        .retro-toggle {
-            font-size: 13px;
-            color: var(--primary-color);
-            cursor: pointer;
-            background: none;
-            border: none;
-            padding: 0;
-            margin-top: 8px;
-            font-weight: 500;
-        }
-
-        .summary-banner {
-            background: #e0e7ff;
-            color: #3730a3;
-            padding: 10px;
-            border-radius: 8px;
-            text-align: center;
-            font-weight: 600;
-            font-size: 14px;
-            margin-bottom: 12px;
-        }
-
-        .history-list {
-            max-height: 220px;
-            overflow-y: auto;
-            font-size: 13px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .history-item {
-            padding: 10px 12px;
-            background-color: var(--bg-color);
-            border-radius: 8px;
-            border: 1px solid var(--border-color);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .history-info {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-        }
-        .history-name {
-            font-weight: 600;
-            color: var(--text-main);
-        }
-        .history-remark {
-            font-size: 11px;
-            color: var(--text-secondary);
-        }
-        .history-right {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 4px;
-        }
-        .history-times {
-            display: flex;
-            gap: 6px;
-            font-family: monospace;
-            font-size: 12px;
-            font-weight: 600;
-        }
-        .history-duration {
-            font-size: 11px;
-            font-weight: 700;
-            color: #4f46e5;
-            background: #e0e7ff;
-            padding: 1px 6px;
-            border-radius: 4px;
-        }
-        .time-out { color: #0284c7; background: #e0f2fe; padding: 2px 5px; border-radius: 4px; }
-        .time-in { color: #059669; background: #d1fae5; padding: 2px 5px; border-radius: 4px; }
-        .time-pending { color: #d97706; background: #fef3c7; padding: 2px 5px; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <div class="top-clock-bar">
-            <span>目前時間</span>
-            <span id="liveClock">載入中...</span>
-        </div>
+    <div class="container" style="max-width: 500px;">
+        <div class="card p-4 bg-white">
+            <h3 class="text-center mb-4">🏥 外勤打卡系統</h3>
+            
+            <!-- 姓名輸入框 -->
+            <div class="mb-3">
+                <label for="nameInput" class="form-label">**姓名**</label>
+                <input type="text" id="nameInput" class="form-control" placeholder="請輸入您的姓名">
+            </div>
 
-        <h2 class="main-title">C區出發/返回打卡系統</h2>
+            <!-- 組別下拉選單 (C T / X光 / sono) -->
+            <div class="mb-3">
+                <label for="unitSelect" class="form-label">**組別**</label>
+                <select id="unitSelect" class="form-select">
+                    <option value="" disabled selected>請選擇組別</option>
+                    <option value="C T">C T</option>
+                    <option value="X光">X光</option>
+                    <option value="sono">sono</option>
+                </select>
+            </div>
 
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">1. 身分設定</div>
-                <button id="lockBtn" class="btn-lock" onclick="toggleLock()">🔓 解鎖</button>
+            <!-- 備註說明（選填） -->
+            <div class="mb-4">
+                <label for="remarkInput" class="form-label">備註說明 (選填)</label>
+                <input type="text" id="remarkInput" class="form-control" placeholder="例如：某某地點或事項">
             </div>
-            <div class="form-group">
-                <label>姓名：</label>
-                <input type="text" id="nameInput" class="form-control" placeholder="例如：鄧白雪">
-            </div>
-            <div class="form-group">
-                <label>組別：</label>
-                <input type="text" id="unitInput" class="form-control" placeholder="例如：CT">
-            </div>
-            <div class="form-group">
-                <label>備註說明 (選填)：</label>
-                <input type="text" id="remarkInput" class="form-control" placeholder="備註事項">
-            </div>
-        </div>
 
-        <div class="card">
-            <div class="card-title" style="margin-bottom: 5px;">2. 立即打卡</div>
-            <button class="retro-toggle" onclick="toggleRetroMode()">⏱️ 展開 / 關閉「補打卡時間調整」</button>
-            <div id="retroBox" class="retro-box">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label>指定自訂打卡時間：</label>
-                    <input type="time" id="customTimeInput" class="form-control">
-                </div>
+            <!-- 打卡按鈕區 -->
+            <div class="d-grid gap-2 d-md-flex justify-content-md-between">
+                <button onclick="sendData('出發')" class="btn btn-primary btn-lg flex-fill">🚗 出發打卡</button>
+                <button onclick="sendData('回程')" class="btn btn-success btn-lg flex-fill">🏁 回程打卡</button>
             </div>
-            <div class="action-buttons">
-                <button class="btn-clock btn-departure" onclick="clockIn('出發')">🚀 出 發</button>
-                <button class="btn-clock btn-return" onclick="clockIn('回程')">🏠 回 程</button>
-            </div>
-        </div>
 
-        <div class="card">
-            <div class="summary-banner" id="summaryBanner">
-                本日累計外勤時間：0 分鐘
-            </div>
-            <div class="card-header" style="margin-bottom: 10px;">
-                <div class="card-title" style="margin: 0;">3. 本日打卡紀錄</div>
-                <button class="btn-clear" onclick="clearLocalHistory()">🗑️ 清除紀錄</button>
-            </div>
-            <div id="historyList" class="history-list">
-                <div style="text-align: center; color: #94a3b8; padding: 10px;">尚無打卡紀錄</div>
-            </div>
+            <!-- 提示訊息 -->
+            <div id="statusMessage" class="mt-3 text-center text-muted"></div>
         </div>
     </div>
 
     <script>
-        const scriptUrl = "https://script.google.com/macros/s/AKfycbw2tv8HtGK2sfBjdbv8yLXGtH_Ruv7FPMEBZ977Qbx1ln2V2VNiyPcyt5ZESiig4tTlcw/exec";
-        let isLocked = false;
-        
+        // ★ 請在此填入您的 Google Apps Script 部署網址 (WebApp URL)
+        const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw2tv8HtGK2sfBjdbv8yLXGtH_Ruv7FPMEBZ977Qbx1ln2V2VNiyPcyt5ZESiig4tTlcw/exec';
+
+        // 1. 當網頁載入時，自動從瀏覽器記憶體 (localStorage) 帶入上次儲存的姓名與組別
         window.onload = function() {
-            updateClock();
-            setInterval(updateClock, 1000);
-            checkAndClearHistoryForNewDay();
-            renderHistory();
-            const now = new Date();
-            document.getElementById('customTimeInput').value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            var savedName = localStorage.getItem('saved_name');
+            var savedUnit = localStorage.getItem('saved_unit');
+            
+            if (savedName) {
+                document.getElementById('nameInput').value = savedName;
+            }
+            if (savedUnit) {
+                document.getElementById('unitSelect').value = savedUnit;
+            }
         };
 
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('liveClock').innerText = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-        }
-
-        function playBeepSound() {
-            try {
-                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                const oscillator = audioCtx.createOscillator();
-                const gainNode = audioCtx.createGain();
-                oscillator.type = 'sine';
-                oscillator.frequency.setValueAtTime(587.33, audioCtx.currentTime);
-                oscillator.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1);
-                gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
-                oscillator.connect(gainNode);
-                gainNode.connect(audioCtx.destination);
-                oscillator.start();
-                oscillator.stop(audioCtx.currentTime + 0.3);
-            } catch (e) {}
-        }
-
-        function toggleLock() {
-            isLocked = !isLocked;
-            document.getElementById('nameInput').disabled = isLocked;
-            document.getElementById('unitInput').disabled = isLocked;
-            document.getElementById('lockBtn').innerText = isLocked ? "🔒 已鎖定" : "🔓 解鎖";
-        }
-
-        function toggleRetroMode() {
-            const box = document.getElementById('retroBox');
-            box.style.display = box.style.display === 'block' ? 'none' : 'block';
-        }
-
-        function checkAndClearHistoryForNewDay() {
-            const todayStr = new Date().toDateString();
-            if (localStorage.getItem('lastRecordDate') !== todayStr) {
-                localStorage.removeItem('clockHistoryPairs');
-                localStorage.setItem('lastRecordDate', todayStr);
+        // 2. 點擊出發或回程時觸發的函數
+        function sendData(type) {
+            var name = document.getElementById('nameInput').value.trim();
+            var unit = document.getElementById('unitSelect').value;
+            var remark = document.getElementById('remarkInput').value.trim();
+            var msgDiv = document.getElementById('statusMessage');
+            
+            // 檢查是否填寫
+            if (!name) {
+                alert('請先填寫姓名！');
+                document.getElementById('nameInput').focus();
+                return;
             }
-        }
-
-        function getLocalHistory() {
-            const data = localStorage.getItem('clockHistoryPairs');
-            return data ? JSON.parse(data) : [];
-        }
-
-        function saveLocalHistory(history) {
-            localStorage.setItem('clockHistoryPairs', JSON.stringify(history));
-            localStorage.setItem('lastRecordDate', new Date().toDateString());
-        }
-
-        function clearLocalHistory() {
-            if (confirm('確定要清除本機顯示的所有本日打卡紀錄嗎？')) {
-                localStorage.removeItem('clockHistoryPairs');
-                renderHistory();
-            }
-        }
-
-        async function clockIn(type) {
-            const name = document.getElementById('nameInput').value.trim();
-            const unit = document.getElementById('unitInput').value.trim();
-            const remark = document.getElementById('remarkInput').value.trim();
-            const customTime = document.getElementById('customTimeInput').value;
-
-            if (!name || !unit) {
-                alert('請先填寫姓名與組別！');
+            if (!unit) {
+                alert('請選擇組別！');
+                document.getElementById('unitSelect').focus();
                 return;
             }
 
-            let finalTimeStr;
-            const retroBoxVisible = document.getElementById('retroBox').style.display === 'block';
-            if (retroBoxVisible && customTime) {
-                finalTimeStr = customTime + ":00";
-            } else {
-                const now = new Date();
-                finalTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`;
-            }
+            // 將姓名與組別存入 localStorage，下次關閉網頁重開也會自動鎖定記憶
+            localStorage.setItem('saved_name', name);
+            localStorage.setItem('saved_unit', unit);
 
-            const payload = { 
-                name, 
-                unit, 
-                remark: retroBoxVisible ? `[補打卡] ${remark}` : remark, 
-                type,
-                customTime: finalTimeStr 
+            var payload = {
+                type: type,
+                name: name,
+                unit: unit,
+                remark: remark
             };
 
-            playBeepSound();
-            let history = getLocalHistory();
-            
-            if (type === '出發') {
-                history.unshift({
-                    name: name,
-                    unit: unit,
-                    remark: remark,
-                    outTime: finalTimeStr.substring(0, 5),
-                    inTime: null,
-                    duration: 0
-                });
-            } else if (type === '回程') {
-                let found = history.find(item => item.name === name && item.unit === unit && !item.inTime);
-                if (found) {
-                    found.inTime = finalTimeStr.substring(0, 5);
-                    const outDate = new Date("1970-01-01T" + found.outTime + ":00");
-                    const inDate = new Date("1970-01-01T" + found.inTime + ":00");
-                    let diffMins = Math.round((inDate - outDate) / 60000);
-                    if (diffMins < 0) diffMins += 24 * 60; // 跨日防呆
-                    found.duration = diffMins;
+            msgDiv.innerHTML = `<span class="text-primary">正在送出 ${type} 記錄...</span>`;
+
+            // 發送到 Google Apps Script
+            fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    msgDiv.innerHTML = `<span class="text-success fw-bold">✅ ${type} 打卡成功！</span>`;
+                    // 清空備註欄位
+                    document.getElementById('remarkInput').value = '';
                 } else {
-                    history.unshift({
-                        name: name,
-                        unit: unit,
-                        remark: remark,
-                        outTime: '--:--',
-                        inTime: finalTimeStr.substring(0, 5),
-                        duration: 0
-                    });
+                    msgDiv.innerHTML = `<span class="text-danger">❌ 打卡失敗：${data.message || '未知錯誤'}</span>`;
                 }
-            }
-
-            saveLocalHistory(history);
-            renderHistory();
-
-            if (scriptUrl && !scriptUrl.includes("您的部署ID")) {
-                try {
-                    await fetch(scriptUrl, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    alert(type + ' 記錄已成功同步至雲端！');
-                } catch (err) {
-                    console.error('同步失敗', err);
-                }
-            }
-        }
-
-        function renderHistory() {
-            const container = document.getElementById('historyList');
-            const history = getLocalHistory();
-            
-            if (history.length === 0) {
-                container.innerHTML = '<div style="text-align: center; color: #94a3b8; padding: 10px;">尚無打卡紀錄</div>';
-                document.getElementById('summaryBanner').innerText = '本日累計外勤時間：0 分鐘';
-                return;
-            }
-
-            let totalMins = history.reduce((sum, item) => sum + (item.duration || 0), 0);
-            document.getElementById('summaryBanner').innerText = `本日累計外勤時間：${totalMins} 分鐘`;
-
-            container.innerHTML = history.map(item => {
-                let timeDisplay = '';
-                let durationBadge = '';
-
-                if (item.outTime && item.inTime && item.outTime !== '--:--') {
-                    timeDisplay = `<span class="time-out">出: ${item.outTime}</span> <span class="time-in">回: ${item.inTime}</span>`;
-                    durationBadge = `<span class="history-duration">單次歷時: ${item.duration} 分鐘</span>`;
-                } else if (item.outTime) {
-                    timeDisplay = `<span class="time-out">出: ${item.outTime}</span> <span class="time-pending">回: 進行中</span>`;
-                    durationBadge = `<span class="history-duration" style="background:#fef3c7; color:#d97706;">進行中...</span>`;
-                } else {
-                    timeDisplay = `<span class="time-in">回: ${item.inTime}</span>`;
-                }
-
-                return `
-                    <div class="history-item">
-                        <div class="history-info">
-                            <span class="history-name">${item.name} (${item.unit})</span>
-                            <span class="history-remark">${item.remark ? '備註: ' + item.remark : ''}</span>
-                        </div>
-                        <div class="history-right">
-                            <div class="history-times">${timeDisplay}</div>
-                            ${durationBadge}
-                        </div>
-                    </div>
-                `;
-            }).join('');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                msgDiv.innerHTML = `<span class="text-danger">❌ 連線錯誤，請檢查網路或指令碼網址</span>`;
+            });
         }
     </script>
 </body>
