@@ -80,6 +80,19 @@
             border-radius: 6px;
             cursor: pointer;
         }
+        .btn-clear {
+            background: #fee2e2;
+            border: 1px solid #fca5a5;
+            color: #b91c1c;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        .btn-clear:hover {
+            background: #fecaca;
+        }
         .form-group {
             margin-bottom: 10px;
         }
@@ -251,7 +264,10 @@
             <div class="summary-banner" id="summaryBanner">
                 本日累計外勤時間：0 分鐘
             </div>
-            <div class="card-title" style="margin-bottom: 10px;">3. 本日打卡紀錄 (跨日自動清除)</div>
+            <div class="card-header" style="margin-bottom: 10px;">
+                <div class="card-title" style="margin: 0;">3. 本日打卡紀錄</div>
+                <button class="btn-clear" onclick="clearLocalHistory()">🗑️ 清除紀錄</button>
+            </div>
             <div id="historyList" class="history-list">
                 <div style="text-align: center; color: #94a3b8; padding: 10px;">尚無打卡紀錄</div>
             </div>
@@ -260,7 +276,7 @@
 
     <script>
         // ★ 請將下方網址替換為您的 Google Apps Script 部署網址
-        const scriptUrl = "https://script.google.com/macros/s/AKfycbw2tv8HtGK2sfBjdbv8yLXGtH_Ruv7FPMEBZ977Qbx1ln2V2VNiyPcyt5ZESiig4tTlcw/exec";
+        const scriptUrl = "https://script.google.com/macros/s/您的部署ID/exec";
 
         let isLocked = false;
         
@@ -339,6 +355,13 @@
             localStorage.setItem('lastRecordDate', new Date().toDateString());
         }
 
+        function clearLocalHistory() {
+            if (confirm('確定要清除本機顯示的所有本日打卡紀錄嗎？（注意：這只會清除畫面顯示，雲端試算表的資料仍會保留）')) {
+                localStorage.removeItem('clockHistoryPairs');
+                renderHistory();
+            }
+        }
+
         async function clockIn(type) {
             const name = document.getElementById('nameInput').value.trim();
             const unit = document.getElementById('unitInput').value.trim();
@@ -372,28 +395,24 @@
             let history = getLocalHistory();
             
             if (type === '出發') {
-                // 新增一筆待回程的紀錄
                 history.unshift({
                     name: name,
                     unit: unit,
                     remark: remark,
-                    outTime: finalTimeStr.substring(0, 5), // 取 HH:mm
+                    outTime: finalTimeStr.substring(0, 5),
                     inTime: null,
                     duration: 0
                 });
             } else if (type === '回程') {
-                // 尋找最近一筆同姓名、同組別且尚未回程的紀錄填入
                 let found = history.find(item => item.name === name && item.unit === unit && !item.inTime);
                 if (found) {
                     found.inTime = finalTimeStr.substring(0, 5);
-                    // 計算分鐘差
                     const outDate = new Date("1970-01-01T" + found.outTime + ":00");
                     const inDate = new Date("1970-01-01T" + found.inTime + ":00");
                     let diffMins = Math.round((inDate - outDate) / 60000);
                     if (diffMins < 0) diffMins = 0;
                     found.duration = diffMins;
                 } else {
-                    // 若找不到對應的出發，直接新增一筆獨立的回程
                     history.unshift({
                         name: name,
                         unit: unit,
@@ -436,7 +455,6 @@
                 return;
             }
 
-            // 計算總累計外勤時間
             let totalMins = history.reduce((sum, item) => sum + (item.duration || 0), 0);
             document.getElementById('summaryBanner').innerText = `本日累計外勤時間：${totalMins} 分鐘`;
 
